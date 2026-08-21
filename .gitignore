@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Node / 前端(W8 儀表板)
+node_modules/
+dist/
+
+# 資料集(ITBench-Lite 數十 GB,絕不進 git)
+data/
+!data/.gitkeep
+
+# 評測產物
+runs/
+traces/
+*.log
+
+# OS
+.DS_Store
