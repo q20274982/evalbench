@@ -27,3 +27,6 @@ traces/
 # 它自己是獨立的 git repo,外層 git 本來就不會收它的內容;寫進 .gitignore 反而會讓
 # ripgrep / 檔案搜尋整個跳過它,搜不到工作簿與文檔。防呆改由 .git/hooks/pre-commit 擋。
 # 見 evalbench_vault/CLAUDE.md「正本位置與新裝置設定」
+
+# 環境變數(含 API key)
+.env

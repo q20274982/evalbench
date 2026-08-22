@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    working_dir: /work
+    volumes:
+      - .:/work              # 程式碼與 data/,在 host 編輯、容器裡執行
+      - uv-cache:/cache/uv   # uv 的下載快取,重跑不用重抓
+      - venv:/venv           # 虛擬環境留在容器內,不落到 bind mount 上
+    env_file:
+      - .env
+    stdin_open: true
+    tty: true
+
+volumes:
+  uv-cache:
+  venv:
