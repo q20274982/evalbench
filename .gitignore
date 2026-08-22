@@ -25,7 +25,3 @@ traces/
 
 # 私有筆記 repo(獨立的 private repo,絕不進這個公開 repo)
 evalbench_vault/
-
-# 指向私有 repo 的 symlink(換機器時照 CLAUDE.md 的設定步驟重建)
-/CLAUDE.md
-/.claude/commands
