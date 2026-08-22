@@ -55,24 +55,28 @@ PROMPT_TEMPLATE = """你是值班的 SRE。下面是一個 Kubernetes 叢集在�
 """
 
 
-# §2 判定|這一格是 Calvin 的
-def is_correct(model_answer: str, root_cause_id: str) -> bool:
-    """模型挑的 id 算不算對。
+# §2 判定|規則是 Calvin 定的,正本在工作簿 §5.2.0
+def normalize(s: str) -> str:
+    """判定前的正規化:去掉前後空白、轉成小寫。
 
-    TODO 1|照工作簿 §5.2.0 定的判準實作這個函式。
-      - model_answer:模型從候選清單挑的那個 id(已經從 JSON 取出來了)
-      - root_cause_id:ground_truth.yaml 裡帶 root_cause: true 的那個 id
-      - 回傳 True 代表這一題算對
-
-    §5.2.0 寫的判準是「完全相同才算對」。想清楚再寫:
-      - 大小寫要不要管?前後空白要不要去掉?
-      - 模型如果吐出候選清單以外的字串,算錯就好,還是要另外記下來?
-
-    寫完把這行 raise 刪掉。
+    §5.2.0 的判斷分支 1 與 2:候選清單全是小寫,區分大小寫或計較空白,
+    會把「模型照不照抄格式」混進分數,而這一題量的是診斷。
     """
-    raise NotImplementedError(
-        "§2 TODO 1 還沒實作——判定規則是 Calvin 自己寫的,見工作簿 §5.2.0"
-    )
+    return s.strip().lower()
+
+
+def is_correct(model_answer: str, root_cause_id: str) -> bool:
+    """模型挑的 id 算不算對。§5.2.0:正規化之後完全相同才算對。"""
+    return normalize(model_answer) == normalize(root_cause_id)
+
+
+def is_off_list(model_answer: str, candidates: list[str]) -> bool:
+    """模型是不是答了候選清單以外的東西。
+
+    §5.2.0 的判斷分支 3:這種情況照樣算錯,但要另外統計次數——
+    這個數字看得出模型有沒有在編造不存在的東西。
+    """
+    return normalize(model_answer) not in {normalize(c) for c in candidates}
 
 
 # §3 讀題
@@ -157,22 +161,27 @@ def ask(case: dict, pinned: bool) -> tuple[str, dict]:
 
 
 # §5 跑一組
-def run_group(label: str, pinned: bool, cases: list[dict]) -> list[int]:
-    """跑 N_ROUNDS 輪,每輪 5 題,回傳每輪的總分。"""
+def run_group(label: str, pinned: bool, cases: list[dict]) -> tuple[list[int], list[int]]:
+    """跑 N_ROUNDS 輪,每輪 5 題,回傳(每輪總分, 每輪答了清單外東西的次數)。"""
     out_dir = os.path.join(OUT_DIR, label)
     os.makedirs(out_dir, exist_ok=True)
     scores = []
+    off_lists = []
 
     for rnd in range(1, N_ROUNDS + 1):
         score = 0
+        off_list = 0
         print(f"  第 {rnd} 輪")
         for case in cases:
             answer, payload = ask(case, pinned)
             hit = is_correct(answer, case["root_cause_id"])
+            off = is_off_list(answer, case["candidates"])
             score += 1 if hit else 0
+            off_list += 1 if off else 0
+            mark = "對" if hit else ("錯(清單外)" if off else "錯")
             print(
-                f"    {case['scenario']:<14} 模型答 {answer or '(不是合法 JSON)':<28}"
-                f" 標準答案 {case['root_cause_id']:<28} {'對' if hit else '錯'}"
+                f"    {case['scenario']:<14} 模型答 {answer or '(不是合法 JSON)':<44}"
+                f" 標準答案 {case['root_cause_id']:<44} {mark}"
             )
             with open(
                 os.path.join(out_dir, f"round{rnd}_{case['scenario']}.json"), "w", encoding="utf-8"
@@ -183,19 +192,21 @@ def run_group(label: str, pinned: bool, cases: list[dict]) -> list[int]:
                         "root_cause_id": case["root_cause_id"],
                         "model_answer": answer,
                         "is_correct": hit,
+                        "is_off_list": off,
                         "response": payload,
                     },
                     f,
                     ensure_ascii=False,
                     indent=2,
                 )
-        print(f"  第 {rnd} 輪總分:{score} / {len(cases)}")
+        print(f"  第 {rnd} 輪總分:{score} / {len(cases)}|答了清單外的東西 {off_list} 次")
         scores.append(score)
+        off_lists.append(off_list)
 
-    return scores
+    return scores, off_lists
 
 
-def report(label: str, scores: list[int], n_cases: int) -> None:
+def report(label: str, scores: list[int], off_lists: list[int], n_cases: int) -> None:
     """§6 三輪的分數一起報,不報單一數字(鐵律 18)。"""
     pct = [s / n_cases * 100 for s in scores]
     print(f"\n[{label}] 三輪總分:{scores}(滿分 {n_cases})")
@@ -203,6 +214,7 @@ def report(label: str, scores: list[int], n_cases: int) -> None:
     print(f"        最高與最低差 {max(pct) - min(pct):.0f} 個百分點")
     if len(scores) > 1:
         print(f"        三輪的標準差 {statistics.stdev(pct):.1f} 個百分點")
+    print(f"        三輪各答了清單外的東西 {off_lists} 次")
 
 
 def main() -> int:
@@ -222,13 +234,13 @@ def main() -> int:
         print(f"  {c['scenario']:<14} 候選 {len(c['candidates']):>2} 個|標準答案 {c['root_cause_id']}")
 
     print(f"\n--- B 組(主組):temperature=0、seed={SEED} ---")
-    b = run_group("B", True, cases)
+    b, b_off = run_group("B", True, cases)
 
     print("\n--- A 組(對照):不設 temperature、不設 seed ---")
-    a = run_group("A", False, cases)
+    a, a_off = run_group("A", False, cases)
 
-    report("B 組", b, len(cases))
-    report("A 組", a, len(cases))
+    report("B 組", b, b_off, len(cases))
+    report("A 組", a, a_off, len(cases))
     print(f"\n每題的完整回應存在 {OUT_DIR}/B/ 與 {OUT_DIR}/A/。")
     return 0
 
