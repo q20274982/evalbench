@@ -11,7 +11,7 @@ import sys
 import urllib.error
 import urllib.request
 
-REQUIRED = ("DASHSCOPE_API_KEY", "DASHSCOPE_BASE_URL", "QWEN_MODEL")
+REQUIRED = ("OPENROUTER_API_KEY", "OPENROUTER_BASE_URL", "OPENROUTER_MODEL")
 
 
 def main() -> int:
@@ -21,8 +21,8 @@ def main() -> int:
         print(f"✗ .env 缺這幾個變數:{', '.join(missing)}")
         return 1
 
-    url = os.environ["DASHSCOPE_BASE_URL"].rstrip("/") + "/chat/completions"
-    model = os.environ["QWEN_MODEL"]
+    url = os.environ["OPENROUTER_BASE_URL"].rstrip("/") + "/chat/completions"
+    model = os.environ["OPENROUTER_MODEL"]
     body = json.dumps(
         {
             "model": model,
@@ -34,7 +34,7 @@ def main() -> int:
         url,
         data=body,
         headers={
-            "Authorization": "Bearer " + os.environ["DASHSCOPE_API_KEY"],
+            "Authorization": "Bearer " + os.environ["OPENROUTER_API_KEY"],
             "Content-Type": "application/json",
         },
     )
@@ -46,9 +46,9 @@ def main() -> int:
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:500]
         hint = {
-            401: "key 不對,或 key 不屬於這個 workspace",
-            403: "帳號權限或付款方式的問題",
-            404: "DASHSCOPE_BASE_URL 或 QWEN_MODEL 對不上",
+            401: "key 不對,或 key 已被撤銷",
+            403: "帳號權限或餘額不足",
+            404: "OPENROUTER_BASE_URL 或 OPENROUTER_MODEL 對不上",
         }.get(e.code, "看下面的原始回應")
         print(f"✗ HTTP {e.code} — {hint}\n{detail}")
         return 1
