@@ -23,5 +23,7 @@ traces/
 # OS
 .DS_Store
 
-# 私有筆記 repo(獨立的 private repo,絕不進這個公開 repo)
-evalbench_vault/
+# 私有筆記 repo(evalbench_vault/)刻意「不」寫在這裡。
+# 它自己是獨立的 git repo,外層 git 本來就不會收它的內容;寫進 .gitignore 反而會讓
+# ripgrep / 檔案搜尋整個跳過它,搜不到工作簿與文檔。防呆改由 .git/hooks/pre-commit 擋。
+# 見 evalbench_vault/CLAUDE.md「正本位置與新裝置設定」
