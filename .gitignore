@@ -30,3 +30,6 @@ traces/
 
 # 環境變數(含 API key)
 .env
+
+# 實驗的原始模型回應:每週都會產生,不進版控
+experiments/**/out/
