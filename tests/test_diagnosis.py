@@ -3,8 +3,12 @@
 跑法:
     docker compose run --rm app uv run pytest tests/test_diagnosis.py -s
 
-⚠️ 這個檔案交付時是「一綠一紅」,紅的那支是故意的,見 §2 的檔內說明。
+交付時是「一綠一紅」,紅的那支寫的是錯的期望,用途是讓 ValidationError 真的出現一次
+(輸出留在 W00 工作簿 §5.4.1)。2026-09-08 已改成正確的期望,現在全綠。
 """
+
+import pytest
+from pydantic import ValidationError
 
 from diagnosis import Diagnosis
 
@@ -24,16 +28,14 @@ def test_valid_payload_parses():
     assert d.evidence == ["k8s_events_raw.tsv 第 1 筆 JVMChaos 事件"]
 
 
-# §2 紅的那支|confidence 餵字串
+# §2 confidence 餵轉不動的字串,pydantic 要擋下來
 #
-# 這支寫的是「錯的期望」:它假設 pydantic 會照單全收,把 "high" 存進 confidence。
-# 跑下去會紅,而紅色輸出裡的 ValidationError 就是這一題要看的東西。
+# 這支原本寫的是相反的期望(斷言 pydantic 會接受 "high"),所以交付時是紅的。
+# 那個紅的來源在「期望」這一側,不在 src/diagnosis.py,所以修的是這裡。
+# 驗證發生在餵資料那一刻:錯誤指的行是下面的 Diagnosis(...),不是 class 定義那行。
 #
-# Calvin 的三分鐘:
-#   1. 跑上面那行指令,看 1 passed / 1 failed
-#   2. 把 ValidationError 那幾行抄進 W00 工作簿 §5.4
-#   3. 回答:驗證是在 class 定義的那一刻發生,還是在這一行餵資料時發生?
-#   4. 把這支改成「期望它爆」——用 pytest.raises 攔 ValidationError,再跑一次變全綠
-def test_confidence_accepts_string():
-    d = Diagnosis(root_cause="x", confidence="high", evidence=[])
-    assert d.confidence == "high"
+# ⚠️ pydantic v2 預設是寬鬆模式,"0.72" 這種轉得動的字串會被自動轉成 float、不會爆。
+# 擋得下來的只有 "high" 這種轉不動的。W1 作業 1-2 要決定這個預設要不要改。
+def test_confidence_rejects_unparsable_string():
+    with pytest.raises(ValidationError):
+        Diagnosis(root_cause="x", confidence="high", evidence=[])
