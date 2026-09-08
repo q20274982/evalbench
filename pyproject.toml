@@ -1,0 +1,37 @@
+# EvalBench 的 Python 專案設定。作業 0-4 建立(W00 工作簿 §5.4)。
+# 執行一律走容器:docker compose run --rm app uv run <指令>
+
+[project]
+name = "evalbench"
+version = "0.1.0"
+description = "工程維運事故排查 agent 的評測台"
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic>=2.11",
+    "pydantic-settings>=2.8",
+    # experiments/W00 的兩支腳本讀 ground_truth.yaml。
+    # 它們原本靠 `uv run --with pyyaml` 臨時裝,收進來之後那行 --with 變冗餘但仍可跑。
+    "pyyaml>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.9",
+]
+
+# src/ 不做成安裝套件,測試靠 pythonpath 找它。
+# 理由:這個 repo 是實驗場不是要發布的套件,少一層 build backend 少一層要懂的東西。
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+# experiments/ 底下是已經跑完、數字已寫進工作簿的歷史腳本,不回頭改格式。
+# evalbench_vault/ 是另一個 git repo(筆記),ruff 連它 markdown 裡的程式碼片段都會掃,排除掉。
+extend-exclude = ["experiments", "evalbench_vault"]
+
+[tool.ruff.lint]
+# E/F = pyflakes 與 pycodestyle 的預設,I = import 排序,UP = 用新語法。
+select = ["E", "F", "I", "UP"]
