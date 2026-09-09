@@ -33,3 +33,6 @@ traces/
 
 # 實驗的原始模型回應:每週都會產生,不進版控
 experiments/**/out/
+
+# OTel demo 是 clone 進來的外部 repo,不進版控(2026-09-09 smoke test ②)
+external/
