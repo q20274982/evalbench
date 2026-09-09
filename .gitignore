@@ -36,3 +36,4 @@ experiments/**/out/
 
 # OTel demo 是 clone 進來的外部 repo,不進版控(2026-09-09 smoke test ②)
 external/
+experiments/W00/otel_demo_smoke/
