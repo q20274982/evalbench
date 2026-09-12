@@ -11,6 +11,19 @@ services:
     stdin_open: true
     tty: true
 
+  # W1 §3 環境前置第二項。只放 case 表——trace 定案存檔案,不進 DB(W1 工作簿 §3)。
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"        # 從 host 用 psql / GUI 看表用的
+    volumes:
+      - pgdata:/var/lib/postgresql/data   # 持久化:容器砍掉重建,資料還在
+
 volumes:
   uv-cache:
   venv:
+  pgdata:
