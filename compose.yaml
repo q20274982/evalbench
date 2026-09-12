@@ -12,8 +12,10 @@ services:
     tty: true
 
   # W1 §3 環境前置第二項。只放 case 表——trace 定案存檔案,不進 DB(W1 工作簿 §3)。
+  # 映像用 pgvector 版(= 官方 postgres:17 + vector 擴充),W2 的向量檢索直接用得上,
+  # 不必到 W2 才換映像。擴充要 CREATE EXTENSION 才生效,W1 不啟用。
   db:
-    image: postgres:17
+    image: pgvector/pgvector:pg17
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
