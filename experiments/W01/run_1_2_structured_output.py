@@ -152,6 +152,9 @@ def inspect(raw: str) -> dict:
     # §4.3
     candidate = fence.group(1).strip() if fence else raw
     start, end = candidate.find("{"), candidate.rfind("}")
+    # 括號收不收得起來。少收尾的 `}` 是實測到的主要壞法(§7.2 第一次 live,
+    # 5 筆失敗有 4 筆是這個),它跟「完全不像」差一個字元,分開記才看得出來。
+    obs["brace_delta"] = candidate.count("{") - candidate.count("}")
     salvage_obj = None
     if start >= 0 and end > start:
         try:
@@ -199,6 +202,9 @@ def inspect(raw: str) -> dict:
         obs["verdict"] = "差一點點(外殼)"
     elif obs["salvage_ok"] or obs["strict_ok"]:
         obs["verdict"] = "差一點點(欄位)"
+    elif obs["has_brace"] and obs["brace_delta"] != 0:
+        # 括號數量對不上:少收尾或多一個。內容是完整的 JSON,壞在最後一兩個字元。
+        obs["verdict"] = "差一點點(括號)"
     else:
         obs["verdict"] = "完全不像"
     return obs
@@ -281,17 +287,18 @@ def run_live() -> int:
 
     # §6.2 失敗原因分布
     print("\n--- §6.2 分類分布(三輪合計)---")
-    for v in ["成功", "差一點點(外殼)", "差一點點(欄位)", "完全不像"]:
+    for v in ["成功", "差一點點(外殼)", "差一點點(欄位)", "差一點點(括號)", "完全不像"]:
         n = sum(1 for r in records if r["verdict"] == v)
         print(f"  {v}:{n}")
 
     # §6.3 20 列表(第 1 輪),貼進工作簿 §7.2 用
     print("\n--- §6.3 成敗表(第 1 輪)|貼進工作簿 §7.2 ---")
-    print("| 場景 | 判定 | 圍欄 | JSON 前多餘字元 | 缺欄位 | 型別不對 |")
-    print("|---|---|---|---|---|---|")
+    print("| 場景 | 判定 | 圍欄 | JSON 前多餘字元 | 括號差 | 缺欄位 | 型別不對 |")
+    print("|---|---|---|---|---|---|---|")
     for r in [r for r in records if r["round"] == 1]:
         print(f"| {r['scenario']} | {r['verdict']} | {'有' if r['has_fence'] else '無'} "
-              f"| {r['prefix_chars']} | {','.join(r['missing_fields']) or '-'} "
+              f"| {r['prefix_chars']} | {r['brace_delta']:+d} "
+              f"| {','.join(r['missing_fields']) or '-'} "
               f"| {','.join(r['type_errors']) or '-'} |")
 
     print(f"\n原始輸出:{OUT_DIR / '1_2_records.json'}|本次花費 ${cost:.4f}")
@@ -310,6 +317,10 @@ CRAFTED = [
         '{"root_cause": "payment 服務 OOM", "evidence": ["pod 反覆重啟"]}',
     ),
     (
+        "少一個收尾大括號(2026-09-14 live 實測的主要壞法)",
+        '{"root_cause": "payment 服務 OOM", "confidence": 0.8, "evidence": ["pod 反覆重啟"]',
+    ),
+    (
         "型別不對",
         '{"root_cause": "payment 服務 OOM", "confidence": "high", "evidence": "pod 反覆重啟"}',
     ),
@@ -321,7 +332,8 @@ def run_malformed() -> int:
     for name, raw in CRAFTED:
         obs = inspect(raw)
         print(f"=== {name} ===")
-        print(f"  §4.1 raw     圍欄={obs['has_fence']} JSON 前多餘字元={obs['prefix_chars']}")
+        print(f"  §4.1 raw     圍欄={obs['has_fence']} JSON 前多餘字元={obs['prefix_chars']}"
+              f" 括號差={obs['brace_delta']:+d}")
         print(f"  §4.2 strict  {'過' if obs['strict_ok'] else '不過:' + obs['strict_err']}")
         print(f"  §4.3 salvage {'過' if obs['salvage_ok'] else '不過:' + obs['salvage_err']}")
         print(f"  §4.4 schema  {'過' if obs['schema_ok'] else '不過'}"
