@@ -22,7 +22,6 @@ INV-13:ground_truth.yaml 不進 prompt。§3 只讀 alerts/ 與 k8s_events_raw.t
 
 import csv
 import json
-import re
 import statistics
 import sys
 import urllib.error
@@ -32,7 +31,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from config import settings  # noqa: E402
-from diagnosis import Diagnosis  # noqa: E402
+from parsing import inspect  # noqa: E402
 
 # §1 常數
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -116,98 +115,6 @@ def build_slice(scenario: str) -> tuple[str, str]:
             events_text = "\n".join(rows)
 
     return alerts_text, events_text
-
-
-# §4 解析鏈(只記錄,不處置)
-FENCE_RE = re.compile(r"```[a-zA-Z]*\s*(.*?)```", re.DOTALL)
-
-
-def inspect(raw: str) -> dict:
-    """把一次原始輸出走過四層,每層只回報看到什麼。
-
-    §4.1 raw     — 表面特徵:有沒有 markdown 圍欄、JSON 前面有沒有多餘的字
-    §4.2 strict  — 原始字串直接 json.loads 過不過(下游最天真的那種寫法)
-    §4.3 salvage — 剝掉圍欄、只取第一個 {...} 之後過不過(「差一點點」的判定)
-    §4.4 schema  — pydantic 驗證,缺欄位與型別不對分開記
-    """
-    obs: dict = {"raw_chars": len(raw)}
-
-    # §4.1
-    fence = FENCE_RE.search(raw)
-    obs["has_fence"] = fence is not None
-    first_brace = raw.find("{")
-    obs["prefix_chars"] = first_brace if first_brace >= 0 else len(raw)
-    obs["has_brace"] = first_brace >= 0
-
-    # §4.2
-    try:
-        strict_obj = json.loads(raw)
-        obs["strict_ok"] = True
-        obs["strict_err"] = ""
-    except Exception as e:
-        strict_obj = None
-        obs["strict_ok"] = False
-        obs["strict_err"] = type(e).__name__ + ": " + str(e)[:80]
-
-    # §4.3
-    candidate = fence.group(1).strip() if fence else raw
-    start, end = candidate.find("{"), candidate.rfind("}")
-    # 括號收不收得起來。少收尾的 `}` 是實測到的主要壞法(§7.2 第一次 live,
-    # 5 筆失敗有 4 筆是這個),它跟「完全不像」差一個字元,分開記才看得出來。
-    obs["brace_delta"] = candidate.count("{") - candidate.count("}")
-    salvage_obj = None
-    if start >= 0 and end > start:
-        try:
-            salvage_obj = json.loads(candidate[start : end + 1])
-            obs["salvage_ok"] = True
-            obs["salvage_err"] = ""
-        except Exception as e:
-            obs["salvage_ok"] = False
-            obs["salvage_err"] = type(e).__name__ + ": " + str(e)[:80]
-    else:
-        obs["salvage_ok"] = False
-        obs["salvage_err"] = "找不到一對大括號"
-
-    # §4.4
-    target = strict_obj if strict_obj is not None else salvage_obj
-    if target is None:
-        obs["schema_ok"] = False
-        obs["missing_fields"] = []
-        obs["type_errors"] = []
-        obs["schema_err"] = "沒有可驗的物件"
-    else:
-        try:
-            Diagnosis.model_validate(target)
-            obs["schema_ok"] = True
-            obs["missing_fields"] = []
-            obs["type_errors"] = []
-            obs["schema_err"] = ""
-        except Exception as e:
-            obs["schema_ok"] = False
-            errs = e.errors() if hasattr(e, "errors") else []
-            obs["missing_fields"] = [
-                ".".join(map(str, d["loc"])) for d in errs if d["type"] == "missing"
-            ]
-            obs["type_errors"] = [
-                f"{'.'.join(map(str, d['loc']))}={d['type']}"
-                for d in errs
-                if d["type"] != "missing"
-            ]
-            obs["schema_err"] = str(e)[:120].replace("\n", " ")
-
-    # §4.5 一句話的分類,填成敗表用
-    if obs["strict_ok"] and obs["schema_ok"]:
-        obs["verdict"] = "成功"
-    elif obs["salvage_ok"] and obs["schema_ok"]:
-        obs["verdict"] = "差一點點(外殼)"
-    elif obs["salvage_ok"] or obs["strict_ok"]:
-        obs["verdict"] = "差一點點(欄位)"
-    elif obs["has_brace"] and obs["brace_delta"] != 0:
-        # 括號數量對不上:少收尾或多一個。內容是完整的 JSON,壞在最後一兩個字元。
-        obs["verdict"] = "差一點點(括號)"
-    else:
-        obs["verdict"] = "完全不像"
-    return obs
 
 
 # §5 打模型
