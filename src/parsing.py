@@ -7,6 +7,9 @@
   ② pydantic 在這裡是量測儀不是閘門,而且走嚴格模式——不做任何型別轉換。
      寬鬆模式會把 "0.8" 轉成 0.8 並記成完全正常,那一筆不服從就從統計裡消失了。
      唯一保留的邊界是整數當浮點數用(confidence: 1),pydantic 視為同一個值。
+     往上傳三樣東西:原始 dict(parsed,一個字沒改)、錯誤報告(missing_fields /
+     type_errors / schema_err)、驗得過時的 Diagnosis 物件(diagnosis)。評測層
+     拿得到物件就知道這筆型別有保證;沒有物件就走失敗流程,從錯誤報告看是哪一種。
   ③ 剝掉 markdown 圍欄算量測不算救援:剝完不等於這一筆算過,「沒剝時讀不動」
      這個事實留著。前提是現行的約定只在 prompt 裡拜託模型輸出 JSON;哪天請求
      改帶 response_format,合法 JSON 變成供應商層級的保證,那時吐圍欄就是
@@ -72,7 +75,11 @@ def inspect(raw: str) -> dict:
         obs["salvage_err"] = "找不到一對大括號"
 
     # §4.4
+    # 原始 dict 沿用 §4.3 的 target 選法(strict 過就用它,否則用剝殼後的那個),
+    # 不另立一套:兩層各自的成敗已經分開記在 strict_ok / salvage_ok。
     target = strict_obj if strict_obj is not None else salvage_obj
+    obs["parsed"] = target
+    obs["diagnosis"] = None
     if target is None:
         obs["schema_ok"] = False
         obs["missing_fields"] = []
@@ -81,7 +88,7 @@ def inspect(raw: str) -> dict:
     else:
         try:
             # strict=True:不做型別轉換,規格見本檔檔頭②
-            Diagnosis.model_validate(target, strict=True)
+            obs["diagnosis"] = Diagnosis.model_validate(target, strict=True)
             obs["schema_ok"] = True
             obs["missing_fields"] = []
             obs["type_errors"] = []

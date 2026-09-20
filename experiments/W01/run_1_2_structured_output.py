@@ -175,7 +175,10 @@ def run_live() -> int:
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUT_DIR / "1_2_records.json").write_text(
-        json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(
+            [json_safe(r) for r in records], ensure_ascii=False, indent=2
+        ),
+        encoding="utf-8",
     )
 
     # §6.1 每輪各自的成功率,三個數字擺在一起報(鐵律 18)
@@ -212,6 +215,18 @@ def run_live() -> int:
     return 0
 
 
+def json_safe(rec: dict) -> dict:
+    """落檔用:解析層回傳的 Diagnosis 物件換成 dict,其餘原樣。
+
+    物件本身是給評測層用的(規格 §7.2.2 ②),json 存不進去,所以只在寫檔這一步
+    攤平。攤平的是同一筆資料,沒有補值也沒有丟欄位。
+    """
+    out = dict(rec)
+    diag = out.get("diagnosis")
+    out["diagnosis"] = diag.model_dump() if diag is not None else None
+    return out
+
+
 # §7 malformed 模式(不打 API)
 CRAFTED = [
     (
@@ -231,11 +246,15 @@ CRAFTED = [
         "型別不對",
         '{"root_cause": "payment 服務 OOM", "confidence": "high", "evidence": "pod 反覆重啟"}',
     ),
+    (
+        "完全正常(對照組,驗 §4.4 有沒有把 Diagnosis 物件附上來)",
+        '{"root_cause": "payment 服務 OOM", "confidence": 0.8, "evidence": ["pod 反覆重啟"]}',
+    ),
 ]
 
 
 def run_malformed() -> int:
-    print("三個手造的壞輸出走同一條解析鏈(§4),每層只報看到什麼,不做處置。\n")
+    print("手造的樣本走同一條解析鏈(§4),每層只報看到什麼,不做處置。\n")
     for name, raw in CRAFTED:
         obs = inspect(raw)
         print(f"=== {name} ===")
@@ -245,8 +264,10 @@ def run_malformed() -> int:
         print(f"  §4.3 salvage {'過' if obs['salvage_ok'] else '不過:' + obs['salvage_err']}")
         print(f"  §4.4 schema  {'過' if obs['schema_ok'] else '不過'}"
               f" 缺欄位={obs['missing_fields'] or '-'} 型別不對={obs['type_errors'] or '-'}")
+        diag = obs["diagnosis"]
+        print(f"  §4.4 物件    {'有,評測層可直接取值' if diag else '無'}")
         print(f"  §4.5 判定    {obs['verdict']}\n")
-    print("這三種各自要在哪一層爆掉,是工作簿 §7.2 要填的決定。腳本不替它選。")
+    print("這幾種各自要在哪一層爆掉,是工作簿 §7.2 要填的決定。腳本不替它選。")
     return 0
 
 
