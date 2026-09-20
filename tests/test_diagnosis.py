@@ -13,8 +13,10 @@ from pydantic import ValidationError
 from diagnosis import Diagnosis
 
 # 合法的一筆診斷結果。這裡的值是手寫的假資料,不是任何模型的輸出。
+# root_cause_entity 是 2026-09-20 依 §7.3.1 ① 加的必填欄位,補進這筆假資料。
 VALID_PAYLOAD = {
     "root_cause": "otel-demo-ad-jvm-chaos",
+    "root_cause_entity": "otel-demo-ad-jvm-chaos",
     "confidence": 0.72,
     "evidence": ["k8s_events_raw.tsv 第 1 筆 JVMChaos 事件"],
 }

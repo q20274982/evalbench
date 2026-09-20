@@ -1,5 +1,10 @@
 """W01 作業 1-2|prompt 寫得再清楚,下游解析得動幾題?
 
+⚠️ 2026-09-20 起 Diagnosis 多了必填的 root_cause_entity(§7.3.1 ①),手造樣本
+已補上這個欄位,好讓每一筆仍然只示範一種缺陷。live 模式的 PROMPT_TEMPLATE
+維持三欄不動——§7.2.1 那批 90%–95% 是三欄時期量的,改了 prompt 就不是同一次
+量測。要量四欄 schema 的服從率,看 run_1_3_baseline.py。
+
 20 個場景各問一題,連跑 3 輪,記錄每一題在解析鏈上死在哪一層。
 
 ⚠️ 這支腳本**只觀察,不做策略**。解析失敗時它不丟例外、不填預設值、不重試,
@@ -236,19 +241,23 @@ CRAFTED = [
     ),
     (
         "少一個欄位",
-        '{"root_cause": "payment 服務 OOM", "evidence": ["pod 反覆重啟"]}',
+        '{"root_cause": "payment 服務 OOM", "root_cause_entity": "payment-pod-1",'
+        ' "evidence": ["pod 反覆重啟"]}',
     ),
     (
         "少一個收尾大括號(2026-09-14 live 實測的主要壞法)",
-        '{"root_cause": "payment 服務 OOM", "confidence": 0.8, "evidence": ["pod 反覆重啟"]',
+        '{"root_cause": "payment 服務 OOM", "root_cause_entity": "payment-pod-1",'
+        ' "confidence": 0.8, "evidence": ["pod 反覆重啟"]',
     ),
     (
         "型別不對",
-        '{"root_cause": "payment 服務 OOM", "confidence": "high", "evidence": "pod 反覆重啟"}',
+        '{"root_cause": "payment 服務 OOM", "root_cause_entity": "payment-pod-1",'
+        ' "confidence": "high", "evidence": "pod 反覆重啟"}',
     ),
     (
         "完全正常(對照組,驗 §4.4 有沒有把 Diagnosis 物件附上來)",
-        '{"root_cause": "payment 服務 OOM", "confidence": 0.8, "evidence": ["pod 反覆重啟"]}',
+        '{"root_cause": "payment 服務 OOM", "root_cause_entity": "payment-pod-1",'
+        ' "confidence": 0.8, "evidence": ["pod 反覆重啟"]}',
     ),
 ]
 
