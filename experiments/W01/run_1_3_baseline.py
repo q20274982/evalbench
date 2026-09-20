@@ -79,28 +79,24 @@ def build_slice(scenario: str) -> tuple[str, str]:
     """回傳 (告警文字, events 文字)。跟作業 1-2 的 §3 同一套切法。"""
     root = DATASET_ROOT / scenario
 
-    alerts_text = "(這個場景沒有 alerts 快照)"
-    alert_dir = root / "alerts"
-    if alert_dir.is_dir():
-        snaps = sorted(alert_dir.glob("*.json"))
-        if snaps:
-            data = json.loads(snaps[-1].read_text(encoding="utf-8"))
-            items = data if isinstance(data, list) else data.get("data", [])
-            lines = []
-            for a in items:
-                if (a.get("state") or a.get("status", {}).get("state")) != "firing":
-                    continue
-                labels = a.get("labels", {})
-                ann = a.get("annotations", {})
-                lines.append(
-                    f"- {labels.get('alertname', '?')} "
-                    f"severity={labels.get('severity', '?')} "
-                    f"{ann.get('description') or ann.get('summary') or ''}"
-                )
-                if len(lines) >= N_ALERTS:
-                    break
-            if lines:
-                alerts_text = "\n".join(lines)
+    # 取時間最後的那份快照,只留 firing 的。檔名樣式跟作業 1-2 一樣寫死成
+    # alerts_at_*.json:alerts/ 底下還有別的 json(35 份裡有幾份多一個彙整檔),
+    # 那種的結構是 {"data": {"alerts": [...]}} 而不是一個 list,混進來會炸。
+    alerts_text = "(這個場景沒有告警快照)"
+    snaps = sorted((root / "alerts").glob("alerts_at_*.json")) if (root / "alerts").is_dir() else []
+    if snaps:
+        items = json.loads(snaps[-1].read_text(encoding="utf-8"))
+        lines = []
+        for a in [x for x in items if x.get("state") == "firing"][:N_ALERTS]:
+            labels = a.get("labels", {})
+            ann = a.get("annotations", {})
+            lines.append(
+                f"- {labels.get('alertname', '?')} "
+                f"severity={labels.get('severity', '?')} "
+                f"{ann.get('description') or ann.get('summary') or ''}"
+            )
+        if lines:
+            alerts_text = "\n".join(lines)
 
     events_text = "(這個場景沒有 k8s events)"
     ev_path = root / "k8s_events_raw.tsv"
