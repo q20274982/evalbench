@@ -111,16 +111,27 @@ def test_stage2_never_fires_on_this_dataset():
     assert "②同服務 filter" not in stages
 
 
-def test_alias_member_unreachable_when_its_filter_misses_its_own_id():
-    """Scenario-20 的同服務成員 productcatalog-pod-1 拿 0 分。
+def test_alias_member_reachable_via_stage3_id():
+    """Scenario-20 的同服務成員 productcatalog-pod-1 靠第 3 階段收進來。
 
-    答案檔裡它的 filter 是 product-catalog-.*(帶連字號),而 id 是
-    productcatalog-pod-1(不帶),兩者比不到;第 3 階段只比根因的 id,比不到
-    成員的 id。所以規格②說要收的成員,實際上收不進來。Scenario-34 的
-    valkey-service-1 同一個毛病。這支釘住這個缺口,不是主張它是對的。
+    它的 filter 是 product-catalog-.*(帶連字號),id 是 productcatalog-pod-1
+    (不帶),兩者比不到,所以前兩階段收不到它——這是答案檔自己的命名不一致
+    (資料集導覽 §7 的 7-12 那一類)。Calvin 2026-09-20 選的 (c) 案:第 3 階段
+    比根因 + 同服務成員的 id。Scenario-34 的 valkey-service-1 同一個毛病。
     """
-    assert score_one("productcatalog-pod-1", gt("Scenario-20")).score == 0
-    assert score_one("valkey-service-1", gt("Scenario-34")).score == 0
+    r20 = score_one("productcatalog-pod-1", gt("Scenario-20"))
+    assert r20.score == 1
+    assert r20.stage == "③同服務 id"
+    assert score_one("valkey-service-1", gt("Scenario-34")).score == 1
+
+
+def test_stage3_does_not_collect_downstream_victims():
+    """第 3 階段放寬到成員 id,不可以順手把下游受害者也收進來。
+
+    Scenario-1 的 aliases 組裡有 frontend-proxy-*,規格②明說不算對。
+    """
+    assert score_one("frontend-proxy-pod-1", gt("Scenario-1")).score == 0
+    assert score_one("frontend-proxy-service-1", gt("Scenario-1")).score == 0
 
 
 def test_downstream_victim_scores_zero():

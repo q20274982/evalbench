@@ -247,7 +247,7 @@ def run_dry() -> int:
         ("Scenario-1", "load-generator-service-1",
          "同服務成員,得分——但命中的是第 1 階段:部分命中語意下根因的 filter 已經涵蓋它"),
         ("Scenario-20", "productcatalog-pod-1",
-         "規格②說要收的同服務成員,實際拿 0:它的 filter 帶連字號、id 不帶,第 3 階段又只比根因 id"),
+         "規格②說要收的同服務成員,前兩階段收不到(filter 帶連字號、id 不帶),靠 (c) 案的第 3 階段"),
         ("Scenario-1", "frontend-proxy-service-1", "下游受害者,規格②明說不算對"),
         ("Scenario-20", "productcatalog-deployment-1", "filter 比不到自己的 id,靠第 3 階段"),
         ("Scenario-38", "otel-demo-horizontal-pod-autoscalers", "filter 是無效正則,跳過後靠 id"),

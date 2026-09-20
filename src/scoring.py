@@ -211,10 +211,16 @@ def score_one(entity: str | None, gt: GroundTruth) -> ScoreResult:
         if hit:
             return ScoreResult(1, "②同服務 filter", f"{member.id}{member.filters} ~ {e}")
 
-    # 第 3 階段:跟根因 group 的 id 比(⑧4:無條件 fallback,不限定沒有
-    # filter 的場景。實測有 3 題的 filter 連自己的 id 都比不到)
+    # 第 3 階段:跟 id 比(⑧4:無條件 fallback,不限定沒有 filter 的場景。
+    # 實測有 3 題的 filter 連自己的 id 都比不到)。
+    # 比的範圍是根因 + 同服務成員(Calvin 2026-09-20 決定的 (c) 案):成員的
+    # filter 比不到成員自己的 id 時(Scenario-20 的 productcatalog-pod-1、
+    # Scenario-34 的 valkey-service-1),規格②說要收的成員在前兩階段收不進來。
     if normalize(gt.root.id) == e:
         return ScoreResult(1, "③根因 id", f"{gt.root.id} == {e}")
+    for member in same_service_members(gt):
+        if normalize(member.id) == e:
+            return ScoreResult(1, "③同服務 id", f"{member.id} == {e}")
 
     note = f"(略過無效 filter {skipped})" if skipped else ""
     return ScoreResult(0, "不命中", f"{e} vs {gt.root.id}{gt.root.filters}{note}")
