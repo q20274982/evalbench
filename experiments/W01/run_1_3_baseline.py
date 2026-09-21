@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from config import settings  # noqa: E402
 from parsing import inspect  # noqa: E402
 from scoring import load_ground_truth, score_one  # noqa: E402
+from tracing import build_trace, new_run_id, write_trace  # noqa: E402
 
 # §1 常數
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -50,6 +51,8 @@ PROVIDER = {"order": ["Alibaba"], "allow_fallbacks": False}
 REASONING = {"enabled": False}
 
 # 餵進去的量跟作業 1-2 一樣,只有輸出格式多一個欄位。醜版沒有檢索,就是粗暴地截頭。
+SLICE_PARAMS_KEYS = ("N_ALERTS", "N_EVENTS", "EVENT_BODY_CHARS")
+
 N_ALERTS = 12
 N_EVENTS = 20
 EVENT_BODY_CHARS = 400
@@ -116,21 +119,23 @@ def build_slice(scenario: str) -> tuple[str, str]:
 
 
 # §4 打模型
-def call_model(prompt: str) -> tuple[str, dict]:
-    body = json.dumps(
-        {
-            "model": settings.openrouter_model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": MAX_TOKENS,
-            "temperature": TEMPERATURE,
-            "seed": SEED,
-            "provider": PROVIDER,
-            "reasoning": REASONING,
-        }
-    ).encode()
+def build_request_body(prompt: str) -> dict:
+    """送出去的整包 body。抽成函式是因為 §7.6.1 ② 要把它原樣存進 trace。"""
+    return {
+        "model": settings.openrouter_model,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": MAX_TOKENS,
+        "temperature": TEMPERATURE,
+        "seed": SEED,
+        "provider": PROVIDER,
+        "reasoning": REASONING,
+    }
+
+
+def call_model(body: dict) -> tuple[str, dict]:
     req = urllib.request.Request(
         settings.openrouter_base_url.rstrip("/") + "/chat/completions",
-        data=body,
+        data=json.dumps(body).encode(),
         headers={
             "Authorization": "Bearer " + settings.openrouter_api_key,
             "Content-Type": "application/json",
@@ -207,16 +212,27 @@ def run_live() -> int:
           f"model={settings.openrouter_model} provider={PROVIDER}")
     records: list[dict] = []
     cost = 0.0
+    run_id = new_run_id()  # §7.6.1 ⑤:這一批 trace 的資料夾名
+    print(f"trace run_id={run_id}")
+    slice_params = {k: globals()[k] for k in SLICE_PARAMS_KEYS}
     for rnd in range(1, N_ROUNDS + 1):
         for sc in scenarios:
             alerts, events = build_slice(sc)
             prompt = PROMPT_TEMPLATE.format(alerts=alerts, events=events)
+            body = build_request_body(prompt)
+            trace_kw = dict(
+                run_id=run_id, scenario=sc, round_no=rnd,
+                prompt=prompt, slice_params=slice_params, request_body=body,
+            )
             try:
-                raw, usage = call_model(prompt)
+                raw, usage = call_model(body)
             except urllib.error.HTTPError as e:
                 detail = e.read().decode("utf-8", "replace")[:200]
+                # §7.6.1 ③a:失敗的呼叫也落一份,否則少掉的題之後查不出原因。
+                write_trace(build_trace(**trace_kw, error=f"HTTP {e.code} {detail}"))
                 print(f"  [{rnd}/{sc}] ✗ HTTP {e.code} {detail}")
                 continue
+            write_trace(build_trace(**trace_kw, raw=raw, usage=usage))
             cost += float(usage.get("cost") or 0)
             rec = judge(raw, sc)
             rec["round"] = rnd
@@ -229,6 +245,7 @@ def run_live() -> int:
     )
     report(records)
     print(f"\n原始輸出:{OUT_DIR / '1_3_records.json'}|本次花費 ${cost:.4f}")
+    print(f"可重放紀錄:traces/{run_id}/(一題一檔,§7.6.1 ⑤)")
     return 0
 
 
