@@ -3,7 +3,7 @@
 規格正本是 W01 工作簿 §7.7 與 §7.7.1(Calvin 2026-09-21 定案)。
 
   ① 起點含容器:`docker compose up -d db` 起 Postgres,再跑這支
-  ② 第 2 段叫「切片」不叫「檢索」——本週就是寫死的切法,W2 才換成檢索
+  ② 第 2 段叫「切片」不叫「檢索」——本週就是寫死的切法(src/pipeline.py),W2 才換
   ④ 固定 Scenario-1;預設跑 1 題,--all 跑 35 題 × 3 輪
   ⑤ 題內停、題間繼續;呼叫失敗的那一筆仍然落 trace(§7.6.1 ③a)
 
@@ -11,55 +11,37 @@
 那些才是成功燈。分數另外印,不進成功判定——挑一題會答對的來當綠燈的話,「管線通」
 與「答對了」就共用一盞燈,變紅時分不出是哪一個壞了。
 
-切片與打模型的碼是從 experiments/W01/run_1_3_baseline.py **複製**過來的
-(Calvin 2026-09-21 選 b)。代價寫在這裡:那支腳本改了切法,這支不會跟著變,
-而 §7.7 ② 寫的是「切法照 §7.3.2」。兩邊要一起改。
+住 src/ 不住 experiments/ 的理由:這是系統的入口,每週都要跑,不是某一份作業的
+一次性紀錄(/scaffold 慣例 8,2026-09-21)。
 
 跑法:
     docker compose up -d db
-    docker compose run --rm app uv run python experiments/W01/run_demo.py
-    docker compose run --rm app uv run python experiments/W01/run_demo.py --all
+    docker compose run --rm app uv run python src/demo.py
+    docker compose run --rm app uv run python src/demo.py --all
 
-INV-13:ground_truth.yaml 不進 prompt。§3 只讀 alerts/ 與 k8s_events_raw.tsv;
-答案檔只在 §6 評分那一側被讀。
+INV-13:ground_truth.yaml 不進 prompt。切片只讀 alerts/ 與 k8s_events_raw.tsv;
+答案檔只在 §3 評分那一側被讀。
 """
 
-import csv
-import json
 import sys
 import time
 import urllib.error
-import urllib.request
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+import psycopg
 
-import psycopg  # noqa: E402
-from cases import alert_fingerprint, ensure_schema, open_case  # noqa: E402
-from config import settings  # noqa: E402
-from parsing import inspect  # noqa: E402
-from scoring import load_ground_truth, score_one  # noqa: E402
-from tracing import build_trace, new_run_id, write_trace  # noqa: E402
+from cases import alert_fingerprint, ensure_schema, open_case
+from config import settings
+from parsing import inspect
+from pipeline import DATASET_ROOT, build_prompt, build_request_body, call_model, slice_params
+from pipeline import pick_scenarios as all_scenarios
+from scoring import load_ground_truth, score_one
+from tracing import build_trace, new_run_id, write_trace
 
-# §1 常數(跟 run_1_3_baseline.py 同一組,複製過來)
-REPO_ROOT = Path(__file__).resolve().parents[2]
-DATASET_ROOT = (
-    REPO_ROOT / "data/ITBench-Lite/snapshots/sre/v0.2-B96DF826-4BB2-4B62-97AB-6D84254C53D7"
-)
-
+# §1 常數
 DEMO_SCENARIO = "Scenario-1"
 N_ROUNDS = 3
-SEED = 42
-TEMPERATURE = 0
-MAX_TOKENS = 600
-PROVIDER = {"order": ["Alibaba"], "allow_fallbacks": False}
-REASONING = {"enabled": False}
-
-SLICE_PARAMS_KEYS = ("N_ALERTS", "N_EVENTS", "EVENT_BODY_CHARS")
-N_ALERTS = 12
-N_EVENTS = 20
-EVENT_BODY_CHARS = 400
 
 # §7.4.2 定案:刻意保留的那個會動手的動作。本週每一筆 case 都是它。
 PROPOSED_ACTION = "apply_remediation"
@@ -68,101 +50,13 @@ PROPOSED_ACTION = "apply_remediation"
 # 落在範圍外不會讓 demo 失敗,只印一行提醒——它是「數字對不對得上」的哨兵,不是判準。
 PROMPT_TOKENS_EXPECTED = (3000, 6000)
 
-PROMPT_TEMPLATE = """你是值班的 SRE。下面是一個 Kubernetes 叢集在事故當下的觀測快照。
-
-請判斷這次事故的根因,只輸出一個 JSON 物件,不要有其他文字:
-{{"root_cause": "<一句話講根因>", "root_cause_entity": "<根因資源的名稱,只填名稱>",\
- "confidence": <0 到 1 的小數>, "evidence": ["<證據一>"]}}
-
-=== 告警 ===
-{alerts}
-
-=== K8s events ===
-{events}
-"""
-
 
 # §2 挑場景
 def pick_scenarios(run_all: bool) -> list[str]:
-    if not run_all:
-        return [DEMO_SCENARIO]
-    return sorted(p.name for p in DATASET_ROOT.iterdir() if p.is_dir())
+    return all_scenarios() if run_all else [DEMO_SCENARIO]
 
 
-# §3 第 1–2 段|讀快照 + 切片(不碰 ground_truth.yaml)
-def build_slice(scenario: str) -> tuple[str, str, list[dict[str, Any]]]:
-    """回傳 (告警文字, events 文字, 實際餵進去的那批告警原文)。
-
-    第三個回傳值是 run_1_3_baseline.py 沒有的:§7.7.1 的指紋要拿「這一題實際餵進去
-    那批告警」去算,光有文字算不出來。切法本身一模一樣。
-    """
-    root = DATASET_ROOT / scenario
-
-    alerts_text = "(這個場景沒有告警快照)"
-    fed_alerts: list[dict[str, Any]] = []
-    snaps = sorted((root / "alerts").glob("alerts_at_*.json")) if (root / "alerts").is_dir() else []
-    if snaps:
-        items = json.loads(snaps[-1].read_text(encoding="utf-8"))
-        fed_alerts = [x for x in items if x.get("state") == "firing"][:N_ALERTS]
-        lines = []
-        for a in fed_alerts:
-            labels = a.get("labels", {})
-            ann = a.get("annotations", {})
-            lines.append(
-                f"- {labels.get('alertname', '?')} "
-                f"severity={labels.get('severity', '?')} "
-                f"{ann.get('description') or ann.get('summary') or ''}"
-            )
-        if lines:
-            alerts_text = "\n".join(lines)
-
-    events_text = "(這個場景沒有 k8s events)"
-    ev_path = root / "k8s_events_raw.tsv"
-    if ev_path.is_file():
-        rows = []
-        with ev_path.open(encoding="utf-8", newline="") as f:
-            reader = csv.DictReader(f, delimiter="\t", quotechar='"')
-            for row in reader:
-                body = (row.get("Body") or "").replace("\n", " ")
-                rows.append(f"- {row.get('TimestampTime', '')} {body[:EVENT_BODY_CHARS]}")
-                if len(rows) >= N_EVENTS:
-                    break
-        if rows:
-            events_text = "\n".join(rows)
-
-    return alerts_text, events_text, fed_alerts
-
-
-# §4 第 3 段|打模型
-def build_request_body(prompt: str) -> dict:
-    return {
-        "model": settings.openrouter_model,
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": MAX_TOKENS,
-        "temperature": TEMPERATURE,
-        "seed": SEED,
-        "provider": PROVIDER,
-        "reasoning": REASONING,
-    }
-
-
-def call_model(body: dict) -> tuple[str, dict]:
-    req = urllib.request.Request(
-        settings.openrouter_base_url.rstrip("/") + "/chat/completions",
-        data=json.dumps(body).encode(),
-        headers={
-            "Authorization": "Bearer " + settings.openrouter_api_key,
-            "Content-Type": "application/json",
-        },
-    )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        payload = json.load(resp)
-    text = payload["choices"][0]["message"]["content"] or ""
-    return text, payload.get("usage", {})
-
-
-# §5 第 4 段|解析成 Diagnosis
-# §6 評分(不進成功判定,只印出來。⑤:解析失敗算 0 分、留在分母裡)
+# §3 評分(不進成功判定,只印出來。⑤:解析失敗算 0 分、留在分母裡)
 def judge(raw: str, scenario: str) -> dict:
     obs = inspect(raw)
     diag = obs["diagnosis"]
@@ -180,10 +74,8 @@ def judge(raw: str, scenario: str) -> dict:
     }
 
 
-# §7 跑一題(題內停:任何一段壞掉就回傳失敗,不往下寫 case)
-def run_one(
-    conn: psycopg.Connection, run_id: str, scenario: str, round_no: int
-) -> dict[str, Any]:
+# §4 跑一題(題內停:任何一段壞掉就回傳失敗,不往下寫 case)
+def run_one(conn: psycopg.Connection, run_id: str, scenario: str, round_no: int) -> dict[str, Any]:
     result: dict[str, Any] = {
         "scenario": scenario,
         "round": round_no,
@@ -197,7 +89,7 @@ def run_one(
 
     # 第 1–2 段
     try:
-        alerts_text, events_text, fed_alerts = build_slice(scenario)
+        prompt, fed_alerts = build_prompt(scenario)
     except Exception as e:  # noqa: BLE001 — 讀檔與解析的任何失敗都算這一段壞掉
         result.update(stopped_at="1-2 讀快照/切片", reason=repr(e))
         return result
@@ -206,12 +98,10 @@ def run_one(
         result.update(stopped_at="2 切片", reason="這個場景沒有 firing 告警,算不出指紋")
         return result
 
-    prompt = PROMPT_TEMPLATE.format(alerts=alerts_text, events=events_text)
     body = build_request_body(prompt)
-    slice_params = {k: globals()[k] for k in SLICE_PARAMS_KEYS}
     trace_kw = dict(
         run_id=run_id, scenario=scenario, round_no=round_no,
-        prompt=prompt, slice_params=slice_params, request_body=body,
+        prompt=prompt, slice_params=slice_params(), request_body=body,
     )
 
     # 第 3 段
@@ -262,14 +152,14 @@ def run_one(
     return result
 
 
-# §8 入口
+# §5 入口
 def main(argv: list[str]) -> int:
     run_all = "--all" in argv[1:]
     scenarios = pick_scenarios(run_all)
     rounds = N_ROUNDS if run_all else 1
     run_id = new_run_id()
 
-    print(f"\n=== §8.1 demo run_id={run_id} 場景 {len(scenarios)} 個 × {rounds} 輪 ===")
+    print(f"\n=== §5.1 demo run_id={run_id} 場景 {len(scenarios)} 個 × {rounds} 輪 ===")
 
     try:
         conn = psycopg.connect(settings.postgres_dsn, connect_timeout=10)
@@ -295,16 +185,19 @@ def main(argv: list[str]) -> int:
                     print(f"  [{rnd}/{sc}] ✗ 停在「{r['stopped_at']}」:{r['reason']}")
         elapsed = time.monotonic() - started
 
-    # §8.2 成功判定(不看分數)
+    # §5.2 成功判定(不看分數)
     ok = [r for r in results if r["ok"]]
     bad = [r for r in results if not r["ok"]]
-    print(f"\n--- §8.2 管線 ---\n  五段全通 {len(ok)}/{len(results)} 題,耗時 {elapsed:.1f}s")
+    print(f"\n--- §5.2 管線 ---\n  五段全通 {len(ok)}/{len(results)} 題,耗時 {elapsed:.1f}s")
     if bad:
         print("  停下來的題:")
         for r in bad:
             print(f"    [{r['round']}/{r['scenario']}] {r['stopped_at']} — {r['reason']}")
     missing = [r for r in results if r["trace_path"] and not Path(r["trace_path"]).is_file()]
-    print(f"  trace 檔:{len([r for r in results if r['trace_path']])} 份,不存在的 {len(missing)} 份")
+    print(
+        f"  trace 檔:{len([r for r in results if r['trace_path']])} 份,"
+        f"不存在的 {len(missing)} 份"
+    )
     toks = [r["prompt_tokens"] for r in results if r.get("prompt_tokens")]
     if toks:
         lo, hi = PROMPT_TOKENS_EXPECTED
@@ -315,8 +208,8 @@ def main(argv: list[str]) -> int:
         )
     print(f"  花費:${sum(r.get('cost', 0) for r in results):.4f}")
 
-    # §8.3 分數(另外印,不進成功判定。⑤:解析失敗算 0 分、留在分母裡)
-    print("\n--- §8.3 分數(解析失敗算 0 分,留在分母裡)---")
+    # §5.3 分數(另外印,不進成功判定。⑤:解析失敗算 0 分、留在分母裡)
+    print("\n--- §5.3 分數(解析失敗算 0 分,留在分母裡)---")
     if run_all:
         scores = []
         for rnd in range(1, rounds + 1):

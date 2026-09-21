@@ -14,13 +14,17 @@ src/tracing.py 負責,「確認撈得回來」是這支腳本。跑得動,那一
                   一題約 $0.0008(依據工作簿 §7.5.1:六次 $0.0048)。
 
 跑法:
-    docker compose run --rm app uv run python experiments/W01/replay_trace.py \
+    docker compose run --rm app uv run python src/replay.py \
         check traces/<run_id>/Scenario-1_1.json
-    docker compose run --rm app uv run python experiments/W01/replay_trace.py \
+    docker compose run --rm app uv run python src/replay.py \
         live traces/<run_id>/Scenario-1_1.json
 
 比對基準是「當初那一筆 trace 自己存的內容」,不是任何模型或 judge 的裁決
 (/scaffold 慣例 6:斷言右邊不能是左邊算出來的)。
+
+2026-09-21 從 experiments/W01/ 搬進 src/:這是跨週的系統工具(INV-5 要到 W6 才
+收尾),不是某一份作業的一次性腳本(/scaffold 慣例 8)。重建 prompt 那一段改成
+呼叫 src/pipeline.py 的 build_prompt,不再 import 作業腳本。
 """
 
 import json
@@ -28,12 +32,9 @@ import sys
 import urllib.error
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-
-from run_1_3_baseline import PROMPT_TEMPLATE, build_slice, call_model  # noqa: E402
-
-from parsing import inspect  # noqa: E402
-from tracing import code_version, read_trace, scoring_version  # noqa: E402
+from parsing import inspect
+from pipeline import build_prompt, call_model
+from tracing import code_version, read_trace, scoring_version
 
 # §1 重放跑不動就缺的欄位。少任何一個,這筆 trace 就不滿足 INV-5。
 REQUIRED = [
@@ -77,13 +78,12 @@ def run_check(path: Path) -> int:
 
     # §2.3 ①c 的用途:照存的切法參數重建 prompt,跟存的全文比對
     params = trace["input"]["slice_params"]
-    import run_1_3_baseline as base
+    import pipeline as base
     saved = {k: getattr(base, k) for k in params}
     for k, v in params.items():
         setattr(base, k, v)
     try:
-        alerts, events = build_slice(trace["scenario"])
-        rebuilt = PROMPT_TEMPLATE.format(alerts=alerts, events=events)
+        rebuilt, _ = build_prompt(trace["scenario"])
     finally:
         for k, v in saved.items():
             setattr(base, k, v)

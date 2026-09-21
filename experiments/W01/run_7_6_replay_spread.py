@@ -26,7 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from run_1_3_baseline import call_model  # noqa: E402
+from pipeline import call_model  # noqa: E402
 
 from parsing import inspect  # noqa: E402
 from tracing import read_trace  # noqa: E402

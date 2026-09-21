@@ -4,31 +4,27 @@
 欄位齊不齊、寫進去的跟讀回來的是不是同一份、失敗的呼叫有沒有落檔,以及
 照存的切法參數重建 prompt 會不會跟存檔全文一致(①c 的用途)。
 
-真的再送一次 API 的重放在 experiments/W01/replay_trace.py 的 live 模式,
+真的再送一次 API 的重放在 src/replay.py 的 live 模式,
 那一支要花錢,不放進 pytest(慣例同 W00 的 check_api.py)。
 
 跑法:
     docker compose run --rm app uv run pytest tests/test_tracing.py -s
 """
 
-import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "experiments/W01"))
 
+import pipeline as base  # noqa: E402
+from replay import REQUIRED, _get, run_check  # noqa: E402
 from tracing import build_trace, new_run_id, read_trace, redact, write_trace  # noqa: E402
-
-import run_1_3_baseline as base  # noqa: E402
-from replay_trace import REQUIRED, _get, run_check  # noqa: E402
 
 SCENARIO = "Scenario-1"
 
 
 def _make_trace(run_id: str, **kw) -> dict:
     """用真的切片造一筆 trace。基準是資料集本身,不是任何模型輸出。"""
-    alerts, events = base.build_slice(SCENARIO)
-    prompt = base.PROMPT_TEMPLATE.format(alerts=alerts, events=events)
+    prompt, _ = base.build_prompt(SCENARIO)
     params = {k: getattr(base, k) for k in base.SLICE_PARAMS_KEYS}
     return build_trace(
         run_id=run_id, scenario=SCENARIO, round_no=1,
