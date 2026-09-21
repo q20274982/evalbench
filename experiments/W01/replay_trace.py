@@ -123,9 +123,14 @@ def run_live(path: Path) -> int:
     if then_entity != now_entity:
         print("  → 兩個嫌疑犯:模型那一側變了,或 §2.2 的版本欄位顯示自己改了碼。"
               "先跑 check 模式看版本。")
-    print(f"\n本次花費 ${float(usage.get('cost') or 0):.4f}")
+    # §7.6.2 ①b(Calvin 2026-09-21):判定看評分那一欄,不看逐字。
+    # 逐字一致在這個供應商的 temperature=0 下達不到——2026-09-21 同一包 body
+    # 重放三次,原始輸出三次都不同,而 root_cause_entity 拿到兩種寫法。
+    same = then_entity == now_entity
+    print(f"\n判定:{'重放一致(評分那一欄相同)' if same else '重放不一致'}")
+    print(f"本次花費 ${float(usage.get('cost') or 0):.4f}")
     print(f"當初這次呼叫的 usage:{json.dumps(trace['response']['usage'], ensure_ascii=False)}")
-    return 0
+    return 0 if same else 1
 
 
 def main() -> int:
