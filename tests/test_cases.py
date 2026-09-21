@@ -14,10 +14,12 @@ import pytest
 from cases import TEST_SCHEMA, alert_fingerprint, ensure_schema, open_case
 from config import settings
 
+# §1 固定輸入
 A1 = {"labels": {"alertname": "RequestErrorRate", "namespace": "otel-demo"}, "state": "firing"}
 A2 = {"labels": {"alertname": "CPUThrottlingHigh", "namespace": "otel-demo"}, "state": "firing"}
 
 
+# §2 連線與清表
 @pytest.fixture
 def conn():
     try:
@@ -31,6 +33,7 @@ def conn():
         yield c
 
 
+# §3 指紋
 def test_fingerprint_ignores_order():
     """同一批告警換個順序送進來,指紋要一樣(alert_fingerprint 裡先排序就是為了這個)。"""
     assert alert_fingerprint([A1, A2]) == alert_fingerprint([A2, A1])
@@ -43,6 +46,7 @@ def test_fingerprint_changes_when_labels_change():
     print(f"\n[fingerprint] {alert_fingerprint([A1])} vs {alert_fingerprint([changed])}")
 
 
+# §4 寫入與刻意不去重
 def _insert(conn, fp: str, round_no: int = 1) -> int:
     return open_case(
         conn,

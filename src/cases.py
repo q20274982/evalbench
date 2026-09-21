@@ -20,6 +20,7 @@ from typing import Any
 import psycopg
 from psycopg.types.json import Jsonb
 
+# §1 常數與 DDL
 # 測試不碰 Calvin 手動開的那份資料(/scaffold 慣例 5:測試用的 DB 與他手動開的不共用)。
 DEFAULT_SCHEMA = "public"
 TEST_SCHEMA = "test_w1"
@@ -58,6 +59,7 @@ RETURNING id;
 """
 
 
+# §2 指紋
 def alert_fingerprint(alerts: list[dict[str, Any]]) -> str:
     """§7.7.1:每則 labels 各自雜湊,排序後再雜湊。取 sha256 前 16 碼。
 
@@ -75,12 +77,14 @@ def alert_fingerprint(alerts: list[dict[str, Any]]) -> str:
     return hashlib.sha256("".join(per_alert).encode()).hexdigest()[:16]
 
 
+# §3 建表
 def ensure_schema(conn: psycopg.Connection, schema: str = DEFAULT_SCHEMA) -> None:
     """建 schema 與 cases 表。已存在就什麼都不做。"""
     conn.execute(DDL.format(schema=schema))  # type: ignore[arg-type]
     conn.commit()
 
 
+# §4 寫一筆 case(單純 INSERT,不查有沒有一樣的)
 def open_case(
     conn: psycopg.Connection,
     *,

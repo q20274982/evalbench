@@ -18,6 +18,7 @@ docstring 不算違規:講到舊路徑的說明文字不會讓碼耦合。
 import ast
 from pathlib import Path
 
+# §1 掃描工具
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXPERIMENTS = REPO_ROOT / "experiments"
 EXEMPT = {Path(__file__).resolve()}
@@ -60,6 +61,7 @@ def imported_names(tree: ast.AST) -> list[str]:
     return names
 
 
+# §2 三條規則
 def test_系統與測試不指到實驗():
     """規則 1:刪掉整個 experiments/,src/ 與 tests/ 都不能受影響。"""
     experiment_modules = {p.stem for p in EXPERIMENTS.rglob("*.py")}

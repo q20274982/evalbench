@@ -20,6 +20,7 @@ from typing import Any
 
 from config import settings
 
+# §1 常數
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATASET_ROOT = (
     REPO_ROOT / "data/ITBench-Lite/snapshots/sre/v0.2-B96DF826-4BB2-4B62-97AB-6D84254C53D7"
@@ -51,6 +52,7 @@ PROMPT_TEMPLATE = """你是值班的 SRE。下面是一個 Kubernetes 叢集在�
 """
 
 
+# §2 切法參數與場景清單
 def slice_params() -> dict[str, int]:
     """存進 trace 的切法參數(§7.6.1 ①)。"""
     return {k: globals()[k] for k in SLICE_PARAMS_KEYS}
@@ -61,6 +63,7 @@ def pick_scenarios() -> list[str]:
     return sorted(p.name for p in DATASET_ROOT.iterdir() if p.is_dir())
 
 
+# §3 切片(W2 要換成檢索的就是這一段)
 def build_slice(scenario: str) -> tuple[str, str, list[dict[str, Any]]]:
     """回傳 (告警文字, events 文字, 實際餵進去的那批告警原文)。
 
@@ -108,12 +111,14 @@ def build_slice(scenario: str) -> tuple[str, str, list[dict[str, Any]]]:
     return alerts_text, events_text, fed_alerts
 
 
+# §4 組 prompt
 def build_prompt(scenario: str) -> tuple[str, list[dict[str, Any]]]:
     """切片 + 套進 template。回傳 (prompt 全文, 餵進去的那批告警)。"""
     alerts_text, events_text, fed = build_slice(scenario)
     return PROMPT_TEMPLATE.format(alerts=alerts_text, events=events_text), fed
 
 
+# §5 打模型
 def build_request_body(prompt: str) -> dict:
     """送出去的整包 body。抽成函式是因為 §7.6.1 ② 要把它原樣存進 trace。"""
     return {
