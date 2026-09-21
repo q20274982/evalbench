@@ -22,5 +22,21 @@ class Settings(BaseSettings):
     # 帶日期的版本字串,理由見 W00 工作簿 §8.2:版本被換掉的話,分數抖動就分不出來源。
     openrouter_model: str
 
+    # case 表用(W1 工作簿 §7.7.1)。compose 的 db service 讀的是同一組 .env 變數,
+    # 所以這裡不另設預設值,缺了就在啟動時爆掉而不是連線時才發現。
+    postgres_user: str
+    postgres_password: str
+    postgres_db: str
+    # 預設 db = compose 裡的 service 名。從 host 直接跑時用 POSTGRES_HOST=localhost 覆蓋。
+    postgres_host: str = "db"
+    postgres_port: int = 5432
+
+    @property
+    def postgres_dsn(self) -> str:
+        return (
+            f"postgresql://{self.postgres_user}:{self.postgres_password}"
+            f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
+        )
+
 
 settings = Settings()  # type: ignore[call-arg]

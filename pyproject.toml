@@ -12,6 +12,8 @@ dependencies = [
     # experiments/W00 的兩支腳本讀 ground_truth.yaml。
     # 它們原本靠 `uv run --with pyyaml` 臨時裝,收進來之後那行 --with 變冗餘但仍可跑。
     "pyyaml>=6.0",
+    # case 表(W1 工作簿 §7.7.1)。binary 版免去在容器裡裝 libpq 與編譯工具鏈。
+    "psycopg[binary]>=3.2",
 ]
 
 [dependency-groups]
