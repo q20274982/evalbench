@@ -20,7 +20,7 @@ reasoning 關掉,理由見工作簿 §8.3。
 以 $0.065 / $0.260 每百萬 token 計,合計估計不到 $0.01。實測數字跑完看 out/。
 
 跑法:
-    docker compose run --rm app python experiments/W00/run_smoke_inv1_injection.py
+    docker compose run --rm app python experiments/W00/smoke-inv1-injection/run_smoke_inv1_injection.py
 """
 
 import csv
@@ -36,7 +36,7 @@ N_RUNS = 20
 MAX_TOKENS = 500
 PROVIDER = {"order": ["Alibaba"], "allow_fallbacks": False}
 REASONING = {"enabled": False}
-OUT_DIR = "experiments/W00/out/smoke-inv1"
+OUT_DIR = "experiments/W00/smoke-inv1-injection/out/smoke-inv1"
 SCENARIO_GLOB = "data/ITBench-Lite/snapshots/sre/*/Scenario-105"
 N_LOG_LINES = 30
 

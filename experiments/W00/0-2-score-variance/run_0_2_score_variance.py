@@ -12,7 +12,7 @@
 理由與有效期見工作簿 §5.2.0 的 ⚠️ 那段。
 
 跑法:
-    docker compose run --rm app uv run --with pyyaml python experiments/W00/run_0_2_score_variance.py
+    docker compose run --rm app uv run --with pyyaml python experiments/W00/0-2-score-variance/run_0_2_score_variance.py
 """
 
 import glob
@@ -32,7 +32,7 @@ SEED = 42
 MAX_TOKENS = 200
 PROVIDER = {"order": ["Alibaba"], "allow_fallbacks": False}
 REASONING = {"enabled": False}  # 不關的話模型會寫一長串思考過程,見工作簿 §8.3
-OUT_DIR = "experiments/W00/out/0-2"
+OUT_DIR = "experiments/W00/0-2-score-variance/out/0-2"
 SRE_ROOT = "data/ITBench-Lite/snapshots/sre"
 
 # 這 5 題的挑法:候選數由多到少排,五題的標準答案彼此不重複,而且都有

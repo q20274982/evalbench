@@ -13,8 +13,8 @@
   live  — 打 API 跑 35 題 × 3 輪。要花錢(估計 $0.14)。
 
 跑法:
-    docker compose run --rm app uv run python experiments/W01/run_1_3_baseline.py dry
-    docker compose run --rm app uv run python experiments/W01/run_1_3_baseline.py live
+    docker compose run --rm app uv run python experiments/W01/1-3-baseline/run_1_3_baseline.py dry
+    docker compose run --rm app uv run python experiments/W01/1-3-baseline/run_1_3_baseline.py live
 
 INV-13:ground_truth.yaml 不進 prompt。§3 只讀 alerts/ 與 k8s_events_raw.tsv;
 答案檔只在 §5 評分那一側被讀,方向是單向的。
@@ -28,7 +28,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from config import settings  # noqa: E402
 from parsing import inspect  # noqa: E402
@@ -36,7 +36,7 @@ from scoring import load_ground_truth, score_one  # noqa: E402
 from tracing import build_trace, new_run_id, write_trace  # noqa: E402
 
 # §1 常數
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 DATASET_ROOT = (
     REPO_ROOT / "data/ITBench-Lite/snapshots/sre/v0.2-B96DF826-4BB2-4B62-97AB-6D84254C53D7"
 )

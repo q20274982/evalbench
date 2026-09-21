@@ -37,7 +37,7 @@ ground_truth.yaml 的兩種寫法
 跑法
 ----
     cd ~/evalbench && docker compose run --rm app \
-        uv run python experiments/W00/run_0_5_random_baseline.py
+        uv run python experiments/W00/0-5-random-baseline/run_0_5_random_baseline.py
 """
 
 import glob

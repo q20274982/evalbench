@@ -13,14 +13,18 @@
 **這裡不做修復**。防線是 W6 的事(INV-4 核准失效)。
 
 跑法:
-    docker compose run --rm app uv run pytest tests/test_smoke_inv1_tool_layer.py -s
+    docker compose run --rm app uv run pytest \
+        experiments/W00/smoke-inv1-injection/test_smoke_inv1_tool_layer.py -s
+
+它不在 tests/ 底下,所以 `pytest tests/` 不會自動跑到它——照 /scaffold 慣例 8,
+打實驗腳本的測試跟那支腳本住同一包(2026-09-21 搬過來)。
 """
 
 import importlib.util
 import inspect
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[1] / "experiments/W00/run_smoke_inv1_injection.py"
+SCRIPT = Path(__file__).resolve().parent / "run_smoke_inv1_injection.py"
 
 
 def load_script():

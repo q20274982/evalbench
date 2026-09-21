@@ -14,7 +14,7 @@ spec 是 Calvin 定的(2026-09-13 對話),四個決定:
      轉成 datetime 只發生在最後印表那一步。
 
 跑法:
-    docker compose run --rm app uv run python experiments/W01/run_1_1_inventory.py
+    docker compose run --rm app uv run python experiments/W01/1-1-inventory/run_1_1_inventory.py
 
 為什麼要開子行程:RSS 峰值是只升不降的高水位。同一個行程裡先量 in-memory
 再量 streaming,streaming 會讀到前一次留下的高點。所以每個 (來源, 讀法) 各開
@@ -29,7 +29,7 @@ from datetime import datetime
 from pathlib import Path
 
 # §1 常數
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 # 資料集版本字串只寫在這一個地方(資料集導覽 §3.2 的警告)。
 DATASET_ROOT = REPO_ROOT / "data/ITBench-Lite/snapshots/sre/v0.2-B96DF826-4BB2-4B62-97AB-6D84254C53D7"
 SCENARIO = "Scenario-1"

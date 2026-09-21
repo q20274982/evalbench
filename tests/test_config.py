@@ -1,6 +1,6 @@
 """作業 0-4|環境常數讀得進來。
 
-接手 experiments/W00/check_api.py 的「.env 缺不缺變數」那一半檢查。
+接手 experiments/W00/env-checks/check_api.py 的「.env 缺不缺變數」那一半檢查。
 這支不打 API、不花錢,所以可以留在 pytest 裡每次跑。
 
 跑法:

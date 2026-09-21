@@ -18,8 +18,8 @@
               「模型這次剛好都吐對」的時候,三個決定仍然有材料可做。
 
 跑法:
-    docker compose run --rm app uv run python experiments/W01/run_1_2_structured_output.py malformed
-    docker compose run --rm app uv run python experiments/W01/run_1_2_structured_output.py live
+    docker compose run --rm app uv run python experiments/W01/1-2-structured-output/run_1_2_structured_output.py malformed
+    docker compose run --rm app uv run python experiments/W01/1-2-structured-output/run_1_2_structured_output.py live
 
 INV-13:ground_truth.yaml 不進 prompt。§3 只讀 alerts/ 與 k8s_events_raw.tsv,
 不碰場景目錄下的答案檔。
@@ -33,13 +33,13 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from config import settings  # noqa: E402
 from parsing import inspect  # noqa: E402
 
 # §1 常數
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 DATASET_ROOT = (
     REPO_ROOT / "data/ITBench-Lite/snapshots/sre/v0.2-B96DF826-4BB2-4B62-97AB-6D84254C53D7"
 )
@@ -286,7 +286,7 @@ def main() -> int:
         return run_live()
     if mode == "malformed":
         return run_malformed()
-    print("用法:python experiments/W01/run_1_2_structured_output.py [live|malformed]")
+    print("用法:python experiments/W01/1-2-structured-output/run_1_2_structured_output.py [live|malformed]")
     return 2
 
 

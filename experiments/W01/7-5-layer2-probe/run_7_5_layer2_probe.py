@@ -17,8 +17,8 @@ TSV 的轉換器」,所以這裡不轉格式,只把 span 攤成文字行塞進 p
   without-flagd — 把 flagd 這個服務的 span 全部拿掉
 
 跑法:
-    docker compose run --rm app uv run python experiments/W01/run_7_5_layer2_probe.py dry
-    docker compose run --rm app uv run python experiments/W01/run_7_5_layer2_probe.py live
+    docker compose run --rm app uv run python experiments/W01/7-5-layer2-probe/run_7_5_layer2_probe.py dry
+    docker compose run --rm app uv run python experiments/W01/7-5-layer2-probe/run_7_5_layer2_probe.py live
 """
 
 import json
@@ -27,13 +27,13 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from config import settings  # noqa: E402
 from parsing import inspect  # noqa: E402
 
 # §1 常數
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 SNAPSHOT = REPO_ROOT / "experiments/W00/otel_demo_smoke/ad_service_traces.json"
 OUT_DIR = Path(__file__).parent / "out"
 

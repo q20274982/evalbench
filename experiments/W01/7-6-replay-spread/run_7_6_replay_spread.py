@@ -12,7 +12,7 @@ temperature=0、seed=42、provider 鎖 Alibaba、不 fallback)、同一個 commi
 同一份 src/scoring.py。所以量到的抖動只剩模型那一側。
 
 跑法:
-    docker compose run --rm app uv run python experiments/W01/run_7_6_replay_spread.py \
+    docker compose run --rm app uv run python experiments/W01/7-6-replay-spread/run_7_6_replay_spread.py \
         traces/<run_id>/Scenario-1_1.json [次數]
 
 成本:一次約 $0.0003,30 次約 $0.009(依據 2026-09-21 單題實測)。
@@ -24,7 +24,7 @@ import urllib.error
 from collections import Counter
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from pipeline import call_model  # noqa: E402
 

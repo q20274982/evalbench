@@ -18,7 +18,7 @@
 所以 B 套的數字是「官方規則在機械比對下的下界」,不等於官方跑出來的分數。
 
 跑法:
-    docker compose run --rm app uv run python experiments/W01/rescore_1_3.py
+    docker compose run --rm app uv run python experiments/W01/1-3-baseline/rescore_1_3.py
 """
 
 import json
@@ -26,12 +26,12 @@ import statistics
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "src"))
 
 from scoring import ScoreResult, _match_any, is_entity_like, load_ground_truth, normalize  # noqa: E402
 from scoring import score_one  # noqa: E402
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 DATASET_ROOT = (
     REPO_ROOT / "data/ITBench-Lite/snapshots/sre/v0.2-B96DF826-4BB2-4B62-97AB-6D84254C53D7"
 )

@@ -16,7 +16,7 @@ provider 鎖 Alibaba、allow_fallbacks=false,理由見 W00 工作簿 §3。
 以 $0.065 / $0.260 每百萬 token 計,合計估計不到 $0.01(實測見工作簿 §5.1)。
 
 跑法:
-    docker compose run --rm app python experiments/W00/run_0_1_divergence.py
+    docker compose run --rm app python experiments/W00/0-1-divergence/run_0_1_divergence.py
 """
 
 import glob
@@ -36,7 +36,7 @@ PROVIDER = {"order": ["Alibaba"], "allow_fallbacks": False}
 # qwen3.5-flash 預設會先寫一長串思考過程,4000 token 都寫不完,拿不到 JSON。
 # 關掉 reasoning 之後輸出剩 26 token 且直接是 JSON,見工作簿 §8.3。
 REASONING = {"enabled": False}
-OUT_DIR = "experiments/W00/out/0-1"
+OUT_DIR = "experiments/W00/0-1-divergence/out"
 SCENARIO_GLOB = "data/ITBench-Lite/snapshots/sre/*/Scenario-105"
 
 PROMPT_TEMPLATE = """你是值班的 SRE。下面是一個 Kubernetes 叢集在事故當下的告警快照。

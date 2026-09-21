@@ -17,7 +17,7 @@ content 的尾端抓最後一個 JSON 物件出來。
 成本:5 次請求,每次輸出約 5000 token,估計 $0.007。
 
 跑法:
-    docker compose run --rm app uv run --with pyyaml python experiments/W00/run_0_2_reasoning_check.py
+    docker compose run --rm app uv run --with pyyaml python experiments/W00/0-2-score-variance/run_0_2_reasoning_check.py
 """
 
 import json
@@ -31,7 +31,7 @@ import run_0_2_score_variance as base  # 題目、prompt、判定規則全部沿
 
 REASONING = {"effort": "high"}
 MAX_TOKENS = 8000
-OUT_DIR = "experiments/W00/out/0-2-reasoning"
+OUT_DIR = "experiments/W00/0-2-score-variance/out/0-2-reasoning"
 
 JSON_RE = re.compile(r"\{[^{}]*\"root_cause_id\"[^{}]*\}")
 
