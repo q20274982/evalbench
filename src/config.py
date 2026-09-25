@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     # 帶日期的版本字串,理由見 W00 工作簿 §8.2:版本被換掉的話,分數抖動就分不出來源。
     openrouter_model: str
 
+    # W2 作業 2-1 起的 embedding:M1 Pro 本機 server(OpenAI 相容 /v1/embeddings)。
+    # 位址是 Tailscale IP,屬機器細節,只放 .env;沒設時為 None,用到的腳本自己報錯。
+    # 安裝與現況見 vault Ops/m1pro-embedding-server.md。
+    embedding_base_url: str | None = None
+    embedding_model: str = "BAAI/bge-m3"
+
     # case 表用(W1 工作簿 §7.7.1)。compose 的 db service 讀的是同一組 .env 變數,
     # 所以這裡不另設預設值,缺了就在啟動時爆掉而不是連線時才發現。
     postgres_user: str
