@@ -14,9 +14,9 @@ out/probe.jsonl,中途斷掉已量的還在。
   §5 批與批之間的空檔:128 段一個字的請求(float 與 base64 各 5 次),加上客戶端寫 DB 的時間
   §6 重複的段:只查 DB,不打 M1
 
-跑法(M1 的 start.sh 要先開):
+跑法(M1 的 start.sh 要先開;後面可接 dedup / gap / retry / segs / length 只跑其中幾項):
     docker compose run --rm -T app uv run python -u \\
-        experiments/W02/2-1-string-queries/probe_throughput.py
+        experiments/W02/2-1-string-queries/probe_throughput.py [項目 ...]
 """
 
 import json
@@ -166,12 +166,19 @@ def main() -> None:
     record(probe="calibrate", chars=len(probe_text), chars_per_tok=round(chars_per_tok, 3),
            long_text_chars=len(long_text))
 
+    # 命令列可只跑其中幾項(例:`segs length`),中途斷掉時不必重跑已量完的
+    parts = sys.argv[1:] or ["dedup", "gap", "retry", "segs", "length"]
     with psycopg.connect(settings.postgres_dsn, autocommit=True) as conn:
-        probe_dedup(conn)
-        probe_gap(conn)
-        probe_retry(conn, rows)
-        probe_segs_per_request(long_text, chars_per_tok)
-        probe_length(long_text, chars_per_tok)
+        if "dedup" in parts:
+            probe_dedup(conn)
+        if "gap" in parts:
+            probe_gap(conn)
+        if "retry" in parts:
+            probe_retry(conn, rows)
+        if "segs" in parts:
+            probe_segs_per_request(long_text, chars_per_tok)
+        if "length" in parts:
+            probe_length(long_text, chars_per_tok)
     record(probe="done")
 
 
