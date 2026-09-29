@@ -192,13 +192,13 @@ def report(records: list[dict]) -> None:
             line += f"|標準差 {statistics.stdev(scores):.3f}"
         print(line)
 
-    print("\n--- §6.2 命中階段分布(三輪合計)---")
+    print("\n--- §6.2 判對階段分布(三輪合計)---")
     for stage in ["①根因 filter", "②同服務 filter", "③根因 id", "不命中", "沒回答"]:
         n = sum(1 for r in records if r["stage"] == stage)
         print(f"  {stage}:{n}")
 
     print("\n--- §6.3 逐題(第 1 輪)|貼進工作簿 §7.3.2 用 ---")
-    print("| 場景 | 分數 | 命中階段 | 模型答的 entity | 標準答案 id |")
+    print("| 場景 | 分數 | 判對階段 | 模型答的 entity | 標準答案 id |")
     print("|---|---|---|---|---|")
     for r in [r for r in records if r["round"] == 1]:
         print(f"| {r['scenario']} | {r['score']} | {r['stage']} "
