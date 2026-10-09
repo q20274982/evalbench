@@ -178,7 +178,7 @@ TRACE_KEEP = {
     "Links.TraceId",
     "Links.SpanId",
 }
-# §8.4 補充規則:四個狀態碼欄位有幾個放幾個,沒有的當空值
+# SPEC §8.4 補充規則:四個狀態碼欄位有幾個放幾個,沒有的當空值
 TRACE_STATUS = (
     "http.response.status_code",
     "http.status_code",
@@ -221,7 +221,7 @@ LOG_KEEP = {
     "ResourceAttributes",
     "SeverityText",
 }
-# §8.4 補充規則「logs 遮罩的正規表示式」,順序即套用順序
+# SPEC §8.4 補充規則「logs 遮罩的正規表示式」,順序即套用順序
 LOG_STATUS = re.compile(r'(HTTP/[\d.]+"\s)(\d{3})')
 LOG_MASKS = [
     (re.compile(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d+)?Z?"), "<TIME>"),
@@ -336,7 +336,7 @@ METRIC_DROP_TAGS = {
     "otel_scope_name",
     "le",
 }
-# §8.4 metrics:一條數列的身分 = metric_name + pod_name 或 service_name + 留下的 tags +
+# SPEC §8.4 metrics:一條數列的身分 = metric_name + pod_name 或 service_name + 留下的 tags +
 # bucket_le + status_code。內容只放身分,不放數值
 METRIC_ID = {"metric_name", "pod_name", "service_name", "bucket_le", "tags", "status_code"}
 
