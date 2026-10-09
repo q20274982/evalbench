@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     embedding_base_url: str | None = None
     embedding_model: str = "BAAI/bge-m3"
 
+    # W2 作業 2-6 起的 embedding:OpenRouter 鎖 DeepInfra(Learning Plan §4 W7 2026-10-09 範圍變更)。
+    # 語料與查詢都走這一組,不跟上面的本機向量混用。
+    openrouter_embedding_model: str = "baai/bge-m3"
+    openrouter_embedding_provider: str = "DeepInfra"
+
     # case 表用(W1 工作簿 §7.7.1)。compose 的 db service 讀的是同一組 .env 變數,
     # 所以這裡不另設預設值,缺了就在啟動時爆掉而不是連線時才發現。
     postgres_user: str
