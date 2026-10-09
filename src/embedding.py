@@ -106,7 +106,8 @@ def embed_batch(texts: list[str]) -> BatchResult:
             )
         cut = texts[0][: int(len(texts[0]) * TRUNCATE_TO / e.tokens)]
         r = embed_batch([cut])
-        r.truncated += 1
+        # 截短後仍超長會再截一次;這裡只算「一塊被截短過」,不算截了幾次
+        r.truncated = 1
         return r
     vecs = [x["embedding"] for x in sorted(d["data"], key=lambda x: x["index"])]
     return BatchResult(
