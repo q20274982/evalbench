@@ -15,6 +15,7 @@ import psycopg
 
 from config import settings
 
+# §1 表結構
 SCHEMA = "retrieval"
 
 DDL = f"""
@@ -41,6 +42,7 @@ CREATE TABLE IF NOT EXISTS {SCHEMA}.chunks (
 """
 
 
+# §2 連線與續跑
 def md5(text: str) -> str:
     return hashlib.md5(text.encode()).hexdigest()
 
@@ -56,6 +58,7 @@ def done(conn: psycopg.Connection, source: str) -> dict[str, str]:
     return dict(rows.fetchall())
 
 
+# §3 寫入
 def upsert(
     conn: psycopg.Connection, chunks: list[dict], vectors: list, sent_chars: list[int]
 ) -> None:
