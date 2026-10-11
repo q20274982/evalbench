@@ -4,6 +4,11 @@
   - 改動前的起點先不用時間窗:events 不看時間,Warning 優先、由新到舊取 5 筆
   - events 進查詢的字,兩種都跑:"raw" = 塊的原文;"fields" = reason、note、regarding 的 kind 與 name
 查詢的組法也兩種都跑(R01 §12 的對照實驗):"one" = 壓成一個查詢;"each" = 一筆一個查詢再用 RRF 合併。
+混合搜尋(§5,W02 §9.2「兩份名次表怎麼合併」「關鍵字搜尋的設定」,Calvin 2026-10-11):
+  - 關鍵字搜尋:任一個字就算命中,Postgres 內建 ts_rank 打分
+  - 兩種都跑:拆字前把 / . : 換成空白與否(split);english / simple(ts_config)
+  - 向量與關鍵字的名次表用 RRF 合併(常數 60,每份取前 100);"each" 時兩種合併都跑:
+    "flat" = 2N 份一次丟進 RRF;"two_level" = 向量、關鍵字各自先合成一份再 RRF
 
 本檔不讀答案檔(INV-13),只讀 retrieval.chunks 裡的塊。
 查詢向量算一次就存進 retrieval.query_vectors:DeepInfra 同一段字每次的向量不完全一樣,
@@ -24,6 +29,7 @@ N_EVENTS = 5
 ALERT_FIELDS = ["annotations.description", "labels.alertname", "labels.service_name"]
 RRF_K = 60  # RRF 的常用預設常數(一般知識)
 PER_QUERY_DEPTH = 100  # "each" 模式每個查詢取前幾名進 RRF
+SPLIT_RE = re.compile(r"[/.:]")  # split=True 時查詢與塊兩邊都把這三個字元換成空白
 ALERT_FIELD_RE = re.compile(r"^(labels\.\w+|annotations\.\w+|activeAt|value): ", re.M)
 
 QUERY_DDL = f"""
@@ -182,3 +188,107 @@ def search(
     return rrf(
         [vector_search(conn, scenario, vecs[q], PER_QUERY_DEPTH, exclude) for q in queries], k
     )
+
+
+# §5 關鍵字搜尋與混合搜尋
+def _tsquery_any(lexemes: list[str]) -> str:
+    """把已正規化的字組成「任一個就算」的 tsquery 文字。單引號內 \\ 與 '' 是 tsquery 的跳脫寫法。"""
+    return " | ".join("'" + x.replace("\\", "\\\\").replace("'", "''") + "'" for x in lexemes)
+
+
+def doc_expr(split: bool) -> str:
+    """塊這一側送進 to_tsvector 的 SQL 運算式;先算好 tsvector 的表也要用同一條。"""
+    return "regexp_replace(text, '[/.:]', ' ', 'g')" if split else "text"
+
+
+def keyword_rankings(
+    conn: psycopg.Connection,
+    scenario: str,
+    queries: list[str],
+    depth: int,
+    exclude: list[str],
+    ts_config: str,
+    split: bool,
+    tsv_table: str | None = None,
+) -> list[list[str]]:
+    """每個查詢一份名次表:同一題的塊裡,含查詢任一個字的塊照 ts_rank 由高到低,同分照塊 id,
+    取前 depth 個。exclude 裡的塊不回傳。不建索引(W02 §9.2)。
+    塊的 tsvector 預設每次現算;tsv_table 給了就改讀那張表裡先算好的
+    (欄位 id, scenario, ts_config, split, v,算法須與這裡現算的相同),只為了省時間。"""
+    tqs = []
+    for q in queries:
+        text = SPLIT_RE.sub(" ", q) if split else q
+        lex = conn.execute(
+            "SELECT tsvector_to_array(to_tsvector(%s::regconfig, %s))", (ts_config, text)
+        ).fetchone()[0]
+        tqs.append(_tsquery_any(lex) if lex else None)
+    live = [t for t in tqs if t]
+    if not live:
+        return [[] for _ in queries]
+    if tsv_table:
+        d_sql = (
+            f"SELECT id, v FROM {tsv_table} WHERE scenario = %(s)s AND ts_config = %(cfg)s "
+            "AND split = %(split)s AND NOT (id = ANY(%(ex)s))"
+        )
+    else:
+        d_sql = (
+            f"SELECT id, to_tsvector(%(cfg)s::regconfig, {doc_expr(split)}) AS v "
+            f"FROM {chunk_store.SCHEMA}.chunks WHERE scenario = %(s)s AND NOT (id = ANY(%(ex)s))"
+        )
+    rows = conn.execute(
+        f"""
+        WITH d AS ({d_sql}), q AS (
+            SELECT n, t::tsquery AS tq FROM unnest(%(tqs)s::text[]) WITH ORDINALITY AS u(t, n)
+        ), r AS (
+            SELECT q.n, d.id,
+                   row_number() OVER (
+                       PARTITION BY q.n ORDER BY ts_rank(d.v, q.tq) DESC, d.id
+                   ) AS pos
+            FROM q JOIN d ON d.v @@ q.tq
+        )
+        SELECT n, id FROM r WHERE pos <= %(depth)s ORDER BY n, pos
+        """,
+        {
+            "cfg": ts_config,
+            "s": scenario,
+            "split": split,
+            "ex": exclude,
+            "tqs": live,
+            "depth": depth,
+        },
+    ).fetchall()
+    by_n: dict[int, list[str]] = {}
+    for n, cid in rows:
+        by_n.setdefault(n, []).append(cid)
+    out, n = [], 0
+    for t in tqs:  # 沒有任何字的查詢(全被丟掉)給空名次表,其餘依序對回 live 的編號
+        if t:
+            n += 1
+            out.append(by_n.get(n, []))
+        else:
+            out.append([])
+    return out
+
+
+def hybrid_search(
+    conn: psycopg.Connection,
+    scenario: str,
+    events_mode: str,
+    combine: str,
+    k: int,
+    ts_config: str,
+    split: bool,
+    fuse: str = "flat",
+    tsv_table: str | None = None,
+) -> list[str]:
+    """向量 + 關鍵字,RRF 合併。排除組查詢用到的塊,做法同 search()。
+    fuse 只在 combine="each" 有差:"flat" / "two_level"(見檔頭)。"""
+    queries, used = build_queries(conn, scenario, events_mode, combine)
+    vecs = query_vectors(conn, queries)
+    vec_lists = [vector_search(conn, scenario, vecs[q], PER_QUERY_DEPTH, used) for q in queries]
+    kw_lists = keyword_rankings(
+        conn, scenario, queries, PER_QUERY_DEPTH, used, ts_config, split, tsv_table
+    )
+    if combine == "each" and fuse == "two_level":
+        return rrf([rrf(vec_lists, PER_QUERY_DEPTH), rrf(kw_lists, PER_QUERY_DEPTH)], k)
+    return rrf(vec_lists + kw_lists, k)
