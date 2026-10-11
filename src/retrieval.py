@@ -48,14 +48,15 @@ def _alert_fields(text: str) -> dict[str, str]:
     return out
 
 
-def alert_texts(conn: psycopg.Connection, scenario: str) -> list[str]:
+def alert_texts(conn: psycopg.Connection, scenario: str) -> tuple[list[str], list[str]]:
+    """回傳 (查詢文字, 用到的塊 id)。每一塊告警都用到了,文字相同的只是不重複放進查詢。"""
     rows = conn.execute(
-        f"SELECT text FROM {chunk_store.SCHEMA}.chunks WHERE scenario = %s AND source = 'alerts' "
-        "ORDER BY id",
+        f"SELECT id, text FROM {chunk_store.SCHEMA}.chunks "
+        "WHERE scenario = %s AND source = 'alerts' ORDER BY id",
         (scenario,),
     ).fetchall()
     seen, out = set(), []
-    for (t,) in rows:
+    for _, t in rows:
         f = _alert_fields(t)
         q = "\n".join(f[k] for k in ALERT_FIELDS if f.get(k))
         if (
@@ -63,10 +64,11 @@ def alert_texts(conn: psycopg.Connection, scenario: str) -> list[str]:
         ):  # 同一則告警在不同快照、不同 activeAt 會有好幾塊,查詢文字相同只留一次
             seen.add(q)
             out.append(q)
-    return out
+    return out, [r[0] for r in rows]
 
 
-def event_texts(conn: psycopg.Connection, scenario: str, mode: str) -> list[str]:
+def event_texts(conn: psycopg.Connection, scenario: str, mode: str) -> tuple[list[str], list[str]]:
+    """回傳 (查詢文字, 用到的塊 id)。"""
     rows = conn.execute(
         f"SELECT id, text FROM {chunk_store.SCHEMA}.chunks "
         "WHERE scenario = %s AND source = 'events'",
@@ -93,14 +95,17 @@ def event_texts(conn: psycopg.Connection, scenario: str, mode: str) -> list[str]
                 " ".join(x for x in (r.get("kind"), r.get("name")) if x),
             ]
             out.append("\n".join(p for p in parts if p))
-    return out
+    return out, [e[2] for e in evs[:N_EVENTS]]
 
 
 def build_queries(
     conn: psycopg.Connection, scenario: str, events_mode: str, combine: str
-) -> list[str]:
-    items = alert_texts(conn, scenario) + event_texts(conn, scenario, events_mode)
-    return ["\n\n".join(items)] if combine == "one" else items
+) -> tuple[list[str], list[str]]:
+    """回傳 (查詢, 組查詢用到的塊 id)。"""
+    a_txt, a_ids = alert_texts(conn, scenario)
+    e_txt, e_ids = event_texts(conn, scenario, events_mode)
+    items = a_txt + e_txt
+    return (["\n\n".join(items)] if combine == "one" else items), a_ids + e_ids
 
 
 # §3 查詢向量(算一次就存)
@@ -138,13 +143,15 @@ def query_vectors(conn: psycopg.Connection, texts: list[str]) -> dict[str, str]:
 
 
 # §4 搜尋
-def vector_search(conn: psycopg.Connection, scenario: str, qvec: str, k: int) -> list[str]:
+def vector_search(
+    conn: psycopg.Connection, scenario: str, qvec: str, k: int, exclude: list[str]
+) -> list[str]:
     """同一題的塊裡,cosine 距離由近到遠的前 k 個塊 id。全表精確排序(不建近似索引),
-    同距離照塊 id 排(R01 §12「同分時加次要鍵」)。"""
+    同距離照塊 id 排(R01 §12「同分時加次要鍵」)。exclude 裡的塊不回傳。"""
     rows = conn.execute(
-        f"SELECT id FROM {chunk_store.SCHEMA}.chunks WHERE scenario = %s "
+        f"SELECT id FROM {chunk_store.SCHEMA}.chunks WHERE scenario = %s AND NOT (id = ANY(%s)) "
         "ORDER BY embedding <=> %s::vector, id LIMIT %s",
-        (scenario, qvec, k),
+        (scenario, exclude, qvec, k),
     ).fetchall()
     return [r[0] for r in rows]
 
@@ -158,10 +165,20 @@ def rrf(rankings: list[list[str]], k: int) -> list[str]:
 
 
 def search(
-    conn: psycopg.Connection, scenario: str, events_mode: str, combine: str, k: int
+    conn: psycopg.Connection,
+    scenario: str,
+    events_mode: str,
+    combine: str,
+    k: int,
+    exclude_query_chunks: bool = True,
 ) -> list[str]:
-    queries = build_queries(conn, scenario, events_mode, combine)
+    """exclude_query_chunks:搜尋結果排除組查詢用到的塊(告警全部 + 挑出的 events),
+    因為那些 agent 本來就看得到(Calvin 2026-10-11 選 A)。False = code repo d5123d0 的行為。"""
+    queries, used = build_queries(conn, scenario, events_mode, combine)
+    exclude = used if exclude_query_chunks else []
     vecs = query_vectors(conn, queries)
     if combine == "one":
-        return vector_search(conn, scenario, vecs[queries[0]], k)
-    return rrf([vector_search(conn, scenario, vecs[q], PER_QUERY_DEPTH) for q in queries], k)
+        return vector_search(conn, scenario, vecs[queries[0]], k, exclude)
+    return rrf(
+        [vector_search(conn, scenario, vecs[q], PER_QUERY_DEPTH, exclude) for q in queries], k
+    )
