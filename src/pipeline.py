@@ -10,6 +10,10 @@
 
 兩份要一起改的情況只有一種:切法本身變了,而且要讓 replay 的 check 模式繼續
 比得出「切法被改掉了」。W2 換檢索時會碰到這件事。
+
+W2 作業 2-6(§6,W02 工作簿 §9.2「接進 agent 的設定」,Calvin 2026-10-12):
+另加「用搜尋結果」的切法 build_retrieval_prompt,W1 的截頭 build_slice / build_prompt 原樣保留。
+prompt = 組查詢用到的東西(告警去重後 + 那 5 筆 events)+ 混合搜尋前 k 塊。
 """
 
 import csv
@@ -18,6 +22,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+import retrieval
 from config import settings
 
 # §1 常數
@@ -145,3 +150,44 @@ def call_model(body: dict) -> tuple[str, dict]:
         payload = json.load(resp)
     text = payload["choices"][0]["message"]["content"] or ""
     return text, payload.get("usage", {})
+
+
+# §6 用搜尋結果的切法(W2 作業 2-6)
+RETRIEVAL_K = 10
+
+RETRIEVAL_TEMPLATE = """你是值班的 SRE。下面是一個 Kubernetes 叢集在事故當下的觀測快照。
+
+請判斷這次事故的根因,只輸出一個 JSON 物件,不要有其他文字:
+{{"root_cause": "<一句話講根因>", "root_cause_entity": "<根因資源的名稱,只填名稱>",\
+ "confidence": <0 到 1 的小數>, "evidence": ["<證據一>"]}}
+
+=== 告警 ===
+{alerts}
+
+=== K8s events ===
+{events}
+
+=== 檢索到的相關資料 ===
+{retrieved}
+"""
+
+
+def build_retrieval_prompt(
+    conn, scenario: str, combine: str, split: bool, fuse: str = "flat", k: int = RETRIEVAL_K
+) -> tuple[str, list[str]]:
+    """回傳 (prompt 全文, 搜尋結果的塊 id)。events 用原文、字根用 simple(W02 §9.2)。
+
+    INV-13:只讀 retrieval.chunks,不碰 ground_truth.yaml。"""
+    alerts, _ = retrieval.alert_texts(conn, scenario)
+    events, _ = retrieval.event_texts(conn, scenario, "raw")
+    ids = retrieval.hybrid_search(conn, scenario, "raw", combine, k, "simple", split, fuse)
+    texts = dict(
+        conn.execute("SELECT id, text FROM retrieval.chunks WHERE id = ANY(%s)", (ids,)).fetchall()
+    )
+    blocks = [f"--- [{i}] {cid} ---\n{texts[cid]}" for i, cid in enumerate(ids, 1)]
+    prompt = RETRIEVAL_TEMPLATE.format(
+        alerts="\n\n".join(alerts) or "(這個場景沒有告警)",
+        events="\n\n".join(events) or "(這個場景沒有 k8s events)",
+        retrieved="\n\n".join(blocks) or "(沒有檢索結果)",
+    )
+    return prompt, ids
