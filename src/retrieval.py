@@ -13,6 +13,10 @@
 本檔不讀答案檔(INV-13),只讀 retrieval.chunks 裡的塊。
 查詢向量算一次就存進 retrieval.query_vectors:DeepInfra 同一段字每次的向量不完全一樣,
 不存的話「每個設定跑 1 次」的前提(R01 §12「重跑結果相同」)就不成立。
+events 怎麼挑(pick,W02 §9.2,Calvin 2026-10-13),預設 "warning5" = 上面的起點:
+  - "warning_all":Warning 全部放,不設上限、不用 Normal 補(沒有 Warning 的題,events 就是空的)
+  - "dedup_reason" / "dedup_kind":照起點的順序往下走,reason(或 regarding 的 kind)
+    已經挑過就跳過,湊滿 5 筆
 """
 
 import json
@@ -26,6 +30,7 @@ from embedding import embed_batch
 
 # §1 常數
 N_EVENTS = 5
+PICKS = ("warning5", "warning_all", "dedup_reason", "dedup_kind")
 ALERT_FIELDS = ["annotations.description", "labels.alertname", "labels.service_name"]
 RRF_K = 60  # RRF 的常用預設常數(一般知識)
 PER_QUERY_DEPTH = 100  # "each" 模式每個查詢取前幾名進 RRF
@@ -73,7 +78,9 @@ def alert_texts(conn: psycopg.Connection, scenario: str) -> tuple[list[str], lis
     return out, [r[0] for r in rows]
 
 
-def event_texts(conn: psycopg.Connection, scenario: str, mode: str) -> tuple[list[str], list[str]]:
+def event_texts(
+    conn: psycopg.Connection, scenario: str, mode: str, pick: str = "warning5"
+) -> tuple[list[str], list[str]]:
     """回傳 (查詢文字, 用到的塊 id)。"""
     rows = conn.execute(
         f"SELECT id, text FROM {chunk_store.SCHEMA}.chunks "
@@ -89,8 +96,9 @@ def event_texts(conn: psycopg.Connection, scenario: str, mode: str) -> tuple[lis
     evs.sort(key=lambda e: e[2])
     evs.sort(key=lambda e: e[1], reverse=True)
     evs.sort(key=lambda e: e[0], reverse=True)
+    chosen = _pick(evs, pick)
     out = []
-    for *_, t, o in evs[:N_EVENTS]:
+    for *_, t, o in chosen:
         if mode == "raw":
             out.append(t)
         else:
@@ -101,15 +109,44 @@ def event_texts(conn: psycopg.Connection, scenario: str, mode: str) -> tuple[lis
                 " ".join(x for x in (r.get("kind"), r.get("name")) if x),
             ]
             out.append("\n".join(p for p in parts if p))
-    return out, [e[2] for e in evs[:N_EVENTS]]
+    return out, [e[2] for e in chosen]
+
+
+def _pick(evs: list[tuple], pick: str) -> list[tuple]:
+    """evs 已照起點排好(Warning 優先、由新到舊、塊 id)。"""
+    if pick == "warning5":
+        return evs[:N_EVENTS]
+    if pick == "warning_all":
+        return [e for e in evs if e[0]]
+    if pick in ("dedup_reason", "dedup_kind"):
+        key = (
+            (lambda o: o.get("reason"))
+            if pick == "dedup_reason"
+            else (lambda o: (o.get("regarding") or {}).get("kind"))
+        )
+        seen, out = set(), []
+        for e in evs:
+            k = key(e[4])
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append(e)
+            if len(out) == N_EVENTS:
+                break
+        return out
+    raise ValueError(f"pick 只能是 {PICKS}:{pick}")
 
 
 def build_queries(
-    conn: psycopg.Connection, scenario: str, events_mode: str, combine: str
+    conn: psycopg.Connection,
+    scenario: str,
+    events_mode: str,
+    combine: str,
+    pick: str = "warning5",
 ) -> tuple[list[str], list[str]]:
     """回傳 (查詢, 組查詢用到的塊 id)。"""
     a_txt, a_ids = alert_texts(conn, scenario)
-    e_txt, e_ids = event_texts(conn, scenario, events_mode)
+    e_txt, e_ids = event_texts(conn, scenario, events_mode, pick)
     items = a_txt + e_txt
     return (["\n\n".join(items)] if combine == "one" else items), a_ids + e_ids
 
@@ -177,10 +214,11 @@ def search(
     combine: str,
     k: int,
     exclude_query_chunks: bool = True,
+    pick: str = "warning5",
 ) -> list[str]:
     """exclude_query_chunks:搜尋結果排除組查詢用到的塊(告警全部 + 挑出的 events),
     因為那些 agent 本來就看得到(Calvin 2026-10-11 選 A)。False = code repo d5123d0 的行為。"""
-    queries, used = build_queries(conn, scenario, events_mode, combine)
+    queries, used = build_queries(conn, scenario, events_mode, combine, pick)
     exclude = used if exclude_query_chunks else []
     vecs = query_vectors(conn, queries)
     if combine == "one":
@@ -280,10 +318,11 @@ def hybrid_search(
     split: bool,
     fuse: str = "flat",
     tsv_table: str | None = None,
+    pick: str = "warning5",
 ) -> list[str]:
     """向量 + 關鍵字,RRF 合併。排除組查詢用到的塊,做法同 search()。
     fuse 只在 combine="each" 有差:"flat" / "two_level"(見檔頭)。"""
-    queries, used = build_queries(conn, scenario, events_mode, combine)
+    queries, used = build_queries(conn, scenario, events_mode, combine, pick)
     vecs = query_vectors(conn, queries)
     vec_lists = [vector_search(conn, scenario, vecs[q], PER_QUERY_DEPTH, used) for q in queries]
     kw_lists = keyword_rankings(

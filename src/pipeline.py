@@ -173,14 +173,22 @@ RETRIEVAL_TEMPLATE = """你是值班的 SRE。下面是一個 Kubernetes 叢集�
 
 
 def build_retrieval_prompt(
-    conn, scenario: str, combine: str, split: bool, fuse: str = "flat", k: int = RETRIEVAL_K
+    conn,
+    scenario: str,
+    combine: str,
+    split: bool,
+    fuse: str = "flat",
+    k: int = RETRIEVAL_K,
+    pick: str = "warning5",
 ) -> tuple[str, list[str]]:
     """回傳 (prompt 全文, 搜尋結果的塊 id)。events 用原文、字根用 simple(W02 §9.2)。
 
     INV-13:只讀 retrieval.chunks,不碰 ground_truth.yaml。"""
     alerts, _ = retrieval.alert_texts(conn, scenario)
-    events, _ = retrieval.event_texts(conn, scenario, "raw")
-    ids = retrieval.hybrid_search(conn, scenario, "raw", combine, k, "simple", split, fuse)
+    events, _ = retrieval.event_texts(conn, scenario, "raw", pick)
+    ids = retrieval.hybrid_search(
+        conn, scenario, "raw", combine, k, "simple", split, fuse, pick=pick
+    )
     texts = dict(
         conn.execute("SELECT id, text FROM retrieval.chunks WHERE id = ANY(%s)", (ids,)).fetchall()
     )
