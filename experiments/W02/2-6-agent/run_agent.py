@@ -8,6 +8,11 @@
 模型、provider、temperature、seed、max_tokens 跟 W1 相同(src/pipeline.py build_request_body)。
 評分照 W1:src/parsing.py 解析、src/scoring.py 評分;解析失敗或呼叫失敗算 0 分、留在分母。
 
+設定組(第二個參數,預設 1012):
+  1012 — 上面兩組,events 用起點挑法(code repo 262229f 的結果)
+  1013 — events 換挑法(W02 §9.2,Calvin 2026-10-13 照 TA 建議):
+         B + dedup_kind(同 regarding kind 只留一筆);A + warning_all(Warning 全部放)
+
 兩個模式:
   dry  — 不打 API。組好 50 份 prompt,印長度與估計花費。
   live — 打 API,2 組 × 25 題 × 3 輪 = 150 次。花費累計超過 STOP_COST 就停。
@@ -15,13 +20,13 @@
 跑法(從 repo 根目錄,DB 要先起來):
     POSTGRES_HOST=localhost uv run python experiments/W02/2-6-agent/run_agent.py dry
     POSTGRES_HOST=localhost uv run python experiments/W02/2-6-agent/run_agent.py live
+    POSTGRES_HOST=localhost uv run python experiments/W02/2-6-agent/run_agent.py live 1013
 INV-13:ground_truth.yaml 不進 prompt;只在 §3 評分那一側被讀。
 """
 
 import json
 import sys
 import threading
-import urllib.error
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -41,10 +46,17 @@ OUT = Path(__file__).resolve().parent / "out"
 W1_RECORDS = Path(__file__).resolve().parents[2] / "W01/1-3-baseline/out/1_3_records.json"
 HELD_OUT = {6, 9, 12, 15, 16, 20, 23, 29, 31, 35}  # 同 2-3-chunking/run_chunking.py
 N_ROUNDS = 3
-CONFIGS = {
-    "A one/raw 不換 simple": ("one", False, "flat"),
-    "B each/raw 換 simple 一次合併": ("each", True, "flat"),
+CONFIG_SETS = {
+    "1012": {
+        "A one/raw 不換 simple": ("one", False, "flat", "warning5"),
+        "B each/raw 換 simple 一次合併": ("each", True, "flat", "warning5"),
+    },
+    "1013": {
+        "B + dedup_kind": ("each", True, "flat", "dedup_kind"),
+        "A + warning_all": ("one", False, "flat", "warning_all"),
+    },
 }
+CONFIGS = CONFIG_SETS["1012"]
 PRICE_PROMPT, PRICE_COMPLETION = 0.065, 0.26  # US$ / 百萬 token,OpenRouter 2026-10-12 公開價
 CHARS_PER_TOKEN = 2.0  # 估計用,W02 轉向量時量到每 token 1.9–3.3 字元
 STOP_COST = 1.0  # US$,dry 估計約 0.3
@@ -62,8 +74,8 @@ def tune_scenarios() -> list[str]:
 def build_all(scenarios: list[str]) -> dict[str, dict[str, tuple[str, list[str]]]]:
     conn = chunk_store.connect()
     return {
-        name: {s: build_retrieval_prompt(conn, s, c, sp, fz) for s in scenarios}
-        for name, (c, sp, fz) in CONFIGS.items()
+        name: {s: build_retrieval_prompt(conn, s, c, sp, fz, pick=pk) for s in scenarios}
+        for name, (c, sp, fz, pk) in CONFIGS.items()
     }
 
 
@@ -126,7 +138,7 @@ def main(mode: str) -> None:
                 return {**rec, "error": "超過停止門檻,沒打", "score": 0}
         try:
             raw, usage = call_model(build_request_body(prompt))
-        except (urllib.error.URLError, TimeoutError, KeyError) as e:
+        except (OSError, KeyError) as e:  # OSError 含 URLError、TimeoutError、ConnectionResetError
             return {**rec, "error": repr(e), "score": 0, "verdict": "呼叫失敗"}
         c = usage.get("prompt_tokens", 0) * PRICE_PROMPT / 1e6
         c += usage.get("completion_tokens", 0) * PRICE_COMPLETION / 1e6
@@ -155,10 +167,12 @@ def main(mode: str) -> None:
         }
         print(f"[§4] {name}:{json.dumps(summary[name], ensure_ascii=False)}")
     OUT.mkdir(exist_ok=True)
-    (OUT / "records.json").write_text(
-        json.dumps({"records": records, "summary": summary}, ensure_ascii=False, indent=1)
-    )
+    (
+        OUT / ("records.json" if CONFIGS is CONFIG_SETS["1012"] else f"records-{SET}.json")
+    ).write_text(json.dumps({"records": records, "summary": summary}, ensure_ascii=False, indent=1))
 
 
 if __name__ == "__main__":
+    SET = sys.argv[2] if len(sys.argv) > 2 else "1012"
+    CONFIGS = CONFIG_SETS[SET]
     main(sys.argv[1] if len(sys.argv) > 1 else "dry")
