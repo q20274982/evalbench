@@ -55,6 +55,7 @@ CONFIG_SETS = {
         "B + dedup_kind": ("each", True, "flat", "dedup_kind"),
         "A + warning_all": ("one", False, "flat", "warning_all"),
     },
+    "1016-en": {"B + dedup_kind": ("each", True, "flat", "dedup_kind")},
 }
 CONFIGS = CONFIG_SETS["1012"]
 PRICE_PROMPT, PRICE_COMPLETION = 0.065, 0.26  # US$ / 百萬 token,OpenRouter 2026-10-12 公開價

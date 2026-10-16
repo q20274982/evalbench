@@ -194,22 +194,22 @@ def score_one(entity: str | None, gt: GroundTruth) -> ScoreResult:
     entity 是 None 代表上游解析失敗(schema 沒過、模型沒吐這個欄位)。
     """
     if entity is None:
-        return ScoreResult(0, "沒回答", "解析失敗,沒有 root_cause_entity")
+        return ScoreResult(0, "no_answer", "parse failed, no root_cause_entity")
     if not is_entity_like(entity):
-        return ScoreResult(0, "沒回答", f"不符合資源名字元集:{entity[:60]!r}")
+        return ScoreResult(0, "no_answer", f"not a valid resource name: {entity[:60]!r}")
 
     e = normalize(entity)
 
     # 第 1 階段:根因 group 的 filter
     hit, skipped = _match_any(gt.root.filters, e)
     if hit:
-        return ScoreResult(1, "①根因 filter", f"{gt.root.filters} ~ {e}")
+        return ScoreResult(1, "root_filter", f"{gt.root.filters} ~ {e}")
 
     # 第 2 階段:aliases 裡同服務成員的 filter
     for member in same_service_members(gt):
         hit, _ = _match_any(member.filters, e)
         if hit:
-            return ScoreResult(1, "②同服務 filter", f"{member.id}{member.filters} ~ {e}")
+            return ScoreResult(1, "same_service_filter", f"{member.id}{member.filters} ~ {e}")
 
     # 第 3 階段:跟 id 比(⑧4:無條件 fallback,不限定沒有 filter 的場景。
     # 實測有 3 題的 filter 連自己的 id 都比不到)。
@@ -217,10 +217,10 @@ def score_one(entity: str | None, gt: GroundTruth) -> ScoreResult:
     # filter 比不到成員自己的 id 時(Scenario-20 的 productcatalog-pod-1、
     # Scenario-34 的 valkey-service-1),規格②說要收的成員在前兩階段收不進來。
     if normalize(gt.root.id) == e:
-        return ScoreResult(1, "③根因 id", f"{gt.root.id} == {e}")
+        return ScoreResult(1, "root_id", f"{gt.root.id} == {e}")
     for member in same_service_members(gt):
         if normalize(member.id) == e:
-            return ScoreResult(1, "③同服務 id", f"{member.id} == {e}")
+            return ScoreResult(1, "same_service_id", f"{member.id} == {e}")
 
-    note = f"(略過無效 filter {skipped})" if skipped else ""
-    return ScoreResult(0, "不命中", f"{e} vs {gt.root.id}{gt.root.filters}{note}")
+    note = f" (skipped invalid filters {skipped})" if skipped else ""
+    return ScoreResult(0, "miss", f"{e} vs {gt.root.id}{gt.root.filters}{note}")

@@ -43,13 +43,15 @@ N_ALERTS = 12
 N_EVENTS = 20
 EVENT_BODY_CHARS = 400
 
-PROMPT_TEMPLATE = """你是值班的 SRE。下面是一個 Kubernetes 叢集在事故當下的觀測快照。
+PROMPT_TEMPLATE = """You are the on-call SRE. Below is an observability snapshot of a \
+Kubernetes cluster taken during an incident.
 
-請判斷這次事故的根因,只輸出一個 JSON 物件,不要有其他文字:
-{{"root_cause": "<一句話講根因>", "root_cause_entity": "<根因資源的名稱,只填名稱>",\
- "confidence": <0 到 1 的小數>, "evidence": ["<證據一>"]}}
+Determine the root cause of this incident. Output only a single JSON object, with no other text:
+{{"root_cause": "<the root cause in one sentence>", \
+"root_cause_entity": "<name of the root-cause resource, name only>",\
+ "confidence": <a decimal between 0 and 1>, "evidence": ["<evidence 1>"]}}
 
-=== 告警 ===
+=== Alerts ===
 {alerts}
 
 === K8s events ===
@@ -81,7 +83,7 @@ def build_slice(scenario: str) -> tuple[str, str, list[dict[str, Any]]]:
 
     # 取時間最後的那份快照,只留 firing 的。檔名樣式寫死成 alerts_at_*.json:
     # alerts/ 底下還有別的 json,結構是 {"data": {"alerts": [...]}},混進來會炸。
-    alerts_text = "(這個場景沒有告警快照)"
+    alerts_text = "(no alert snapshot for this scenario)"
     fed_alerts: list[dict[str, Any]] = []
     snaps = sorted((root / "alerts").glob("alerts_at_*.json")) if (root / "alerts").is_dir() else []
     if snaps:
@@ -99,7 +101,7 @@ def build_slice(scenario: str) -> tuple[str, str, list[dict[str, Any]]]:
         if lines:
             alerts_text = "\n".join(lines)
 
-    events_text = "(這個場景沒有 k8s events)"
+    events_text = "(no k8s events for this scenario)"
     ev_path = root / "k8s_events_raw.tsv"
     if ev_path.is_file():
         rows = []
@@ -155,19 +157,21 @@ def call_model(body: dict) -> tuple[str, dict]:
 # §6 用搜尋結果的切法(W2 作業 2-6)
 RETRIEVAL_K = 10
 
-RETRIEVAL_TEMPLATE = """你是值班的 SRE。下面是一個 Kubernetes 叢集在事故當下的觀測快照。
+RETRIEVAL_TEMPLATE = """You are the on-call SRE. Below is an observability snapshot of a \
+Kubernetes cluster taken during an incident.
 
-請判斷這次事故的根因,只輸出一個 JSON 物件,不要有其他文字:
-{{"root_cause": "<一句話講根因>", "root_cause_entity": "<根因資源的名稱,只填名稱>",\
- "confidence": <0 到 1 的小數>, "evidence": ["<證據一>"]}}
+Determine the root cause of this incident. Output only a single JSON object, with no other text:
+{{"root_cause": "<the root cause in one sentence>", \
+"root_cause_entity": "<name of the root-cause resource, name only>",\
+ "confidence": <a decimal between 0 and 1>, "evidence": ["<evidence 1>"]}}
 
-=== 告警 ===
+=== Alerts ===
 {alerts}
 
 === K8s events ===
 {events}
 
-=== 檢索到的相關資料 ===
+=== Retrieved context ===
 {retrieved}
 """
 
@@ -194,8 +198,8 @@ def build_retrieval_prompt(
     )
     blocks = [f"--- [{i}] {cid} ---\n{texts[cid]}" for i, cid in enumerate(ids, 1)]
     prompt = RETRIEVAL_TEMPLATE.format(
-        alerts="\n\n".join(alerts) or "(這個場景沒有告警)",
-        events="\n\n".join(events) or "(這個場景沒有 k8s events)",
-        retrieved="\n\n".join(blocks) or "(沒有檢索結果)",
+        alerts="\n\n".join(alerts) or "(no alerts for this scenario)",
+        events="\n\n".join(events) or "(no k8s events for this scenario)",
+        retrieved="\n\n".join(blocks) or "(no retrieval results)",
     )
     return prompt, ids

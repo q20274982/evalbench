@@ -81,7 +81,7 @@ def test_stage1_root_filter():
     """標準答案自己要能通過第 1 階段。右邊是答案檔的 id。"""
     res = score_one("load-generator-pod-1", gt("Scenario-1"))
     assert res.score == 1
-    assert res.stage == "①根因 filter"
+    assert res.stage == "root_filter"
 
 
 def test_same_service_alias_scores_one():
@@ -92,7 +92,7 @@ def test_same_service_alias_scores_one():
     """
     res = score_one("load-generator-service-1", gt("Scenario-1"))
     assert res.score == 1
-    assert res.stage == "①根因 filter"
+    assert res.stage == "root_filter"
 
 
 def test_stage2_never_fires_on_this_dataset():
@@ -108,7 +108,7 @@ def test_stage2_never_fires_on_this_dataset():
         g = gt(s)
         for member in same_service_members(g):
             stages.add(score_one(member.id, g).stage)
-    assert "②同服務 filter" not in stages
+    assert "same_service_filter" not in stages
 
 
 def test_alias_member_reachable_via_stage3_id():
@@ -121,7 +121,7 @@ def test_alias_member_reachable_via_stage3_id():
     """
     r20 = score_one("productcatalog-pod-1", gt("Scenario-20"))
     assert r20.score == 1
-    assert r20.stage == "③同服務 id"
+    assert r20.stage == "same_service_id"
     assert score_one("valkey-service-1", gt("Scenario-34")).score == 1
 
 
@@ -145,14 +145,14 @@ def test_stage3_fallback_when_filter_misses_its_own_id():
     """
     res = score_one("productcatalog-deployment-1", gt("Scenario-20"))
     assert res.score == 1
-    assert res.stage == "③根因 id"
+    assert res.stage == "root_id"
 
 
 def test_no_filter_scenario_falls_back_to_id():
     """10 題沒有 filter 的場景(資料集導覽 §7 的 7-11),第 1 階段直接跳過。"""
     res = score_one("flagd-config", gt("Scenario-2"))
     assert res.score == 1
-    assert res.stage == "③根因 id"
+    assert res.stage == "root_id"
 
 
 def test_invalid_regex_is_skipped_not_raised(capsys):
@@ -163,9 +163,9 @@ def test_invalid_regex_is_skipped_not_raised(capsys):
     assert gt("Scenario-38").root.filters == ["*.*"]  # 答案檔的字面值
     res = score_one("otel-demo-horizontal-pod-autoscalers", gt("Scenario-38"))
     assert res.score == 1
-    assert res.stage == "③根因 id"
+    assert res.stage == "root_id"
     # 不命中時要說明有跳過的 filter,不然這題判 0 分會看不出原因
-    assert "略過無效 filter" in score_one("something-else", gt("Scenario-38")).detail
+    assert "skipped invalid filters" in score_one("something-else", gt("Scenario-38")).detail
 
 
 def test_partial_match_semantics_opens_a_false_positive():
@@ -203,7 +203,7 @@ def test_dirty_entity_counts_as_no_answer(entity):
     """
     res = score_one(entity, gt("Scenario-1"))
     assert res.score == 0
-    assert res.stage == "沒回答"
+    assert res.stage == "no_answer"
 
 
 def test_parse_failure_is_scored_zero_not_dropped():
@@ -213,7 +213,7 @@ def test_parse_failure_is_scored_zero_not_dropped():
     """
     res = score_one(None, gt("Scenario-1"))
     assert res.score == 0
-    assert res.stage == "沒回答"
+    assert res.stage == "no_answer"
 
 
 def test_entity_like_accepts_resource_names_rejects_prose():

@@ -72,7 +72,7 @@ def inspect(raw: str) -> dict:
             obs["salvage_err"] = type(e).__name__ + ": " + str(e)[:80]
     else:
         obs["salvage_ok"] = False
-        obs["salvage_err"] = "找不到一對大括號"
+        obs["salvage_err"] = "no matching pair of braces found"
 
     # §4.4
     # 原始 dict 沿用 §4.3 的 target 選法(strict 過就用它,否則用剝殼後的那個),
@@ -84,7 +84,7 @@ def inspect(raw: str) -> dict:
         obs["schema_ok"] = False
         obs["missing_fields"] = []
         obs["type_errors"] = []
-        obs["schema_err"] = "沒有可驗的物件"
+        obs["schema_err"] = "no object to validate"
     else:
         try:
             # strict=True:不做型別轉換,規格見本檔檔頭②
@@ -108,14 +108,14 @@ def inspect(raw: str) -> dict:
 
     # §4.5 一句話的分類,填成敗表用
     if obs["strict_ok"] and obs["schema_ok"]:
-        obs["verdict"] = "成功"
+        obs["verdict"] = "ok"
     elif obs["salvage_ok"] and obs["schema_ok"]:
-        obs["verdict"] = "差一點點(外殼)"
+        obs["verdict"] = "near_miss_wrapper"
     elif obs["salvage_ok"] or obs["strict_ok"]:
-        obs["verdict"] = "差一點點(欄位)"
+        obs["verdict"] = "near_miss_fields"
     elif obs["has_brace"] and obs["brace_delta"] != 0:
         # 括號數量對不上:少收尾或多一個。內容是完整的 JSON,壞在最後一兩個字元。
-        obs["verdict"] = "差一點點(括號)"
+        obs["verdict"] = "near_miss_brackets"
     else:
-        obs["verdict"] = "完全不像"
+        obs["verdict"] = "unparseable"
     return obs
