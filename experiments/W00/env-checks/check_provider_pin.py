@@ -1,11 +1,10 @@
-"""W00 環境前置|實測 OpenRouter 的 provider 鎖定做不做得到。
-
-Calvin 問的是:多 provider 的模型,能不能用參數指定只打某一家、而且不要 fallback。
-文件說可以,這支腳本實際打四次確認。model 寫死在下面,因為這裡驗的是 provider
-機制,不是 .env 裡的 model 設定。四個情境跑完就知道答案,之後可以刪掉。
-
-每次請求 max_tokens=4,四次合計估計不到 $0.001。
-"""
+# W00 環境前置|實測 OpenRouter 的 provider 鎖定做不做得到。
+#
+# Calvin 問的是:多 provider 的模型,能不能用參數指定只打某一家、而且不要 fallback。
+# 文件說可以,這支腳本實際打四次確認。model 寫死在下面,因為這裡驗的是 provider
+# 機制,不是 .env 裡的 model 設定。四個情境跑完就知道答案,之後可以刪掉。
+#
+# 每次請求 max_tokens=4,四次合計估計不到 $0.001。
 
 import json
 import os

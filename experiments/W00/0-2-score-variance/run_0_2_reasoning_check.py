@@ -1,24 +1,23 @@
-"""W00 作業 0-2 的附帶驗證|把 reasoning 打開,分數會不會變。
-
-**來源與範圍**(鐵律 7):2026-08-23 Calvin 問「0 分是模型太弱,還是因為關掉了
-reasoning」。關 reasoning 是 TA 為了拿乾淨 JSON 自己加的設定(工作簿 §8.3),
-所以這是驗證 TA 引入的變數,不是擴大作業 0-2。
-換模型比較留在 W1,餵更多觀測資料留在 W2,本檔都不碰。
-
-跟 run_0_2_score_variance.py 的差別只有一個:`reasoning` 從關改成開到 high。
-題目、prompt、判定規則、temperature 與 seed 全部沿用,單一變數。
-
-只跑一輪 5 題。這一輪要回答的是「分數會不會變」,不是「分數穩不穩」。
-
-⚠️ 這個模型的思考過程是直接寫在 `message.content` 的純文字裡,不是走 OpenRouter
-的 reasoning 欄位,所以 `exclude: true` 沒有作用(2026-08-23 實測)。答案要從
-content 的尾端抓最後一個 JSON 物件出來。
-
-成本:5 次請求,每次輸出約 5000 token,估計 $0.007。
-
-跑法:
-    docker compose run --rm app uv run --with pyyaml python experiments/W00/0-2-score-variance/run_0_2_reasoning_check.py
-"""
+# W00 作業 0-2 的附帶驗證|把 reasoning 打開,分數會不會變。
+#
+# **來源與範圍**(鐵律 7):2026-08-23 Calvin 問「0 分是模型太弱,還是因為關掉了
+# reasoning」。關 reasoning 是 TA 為了拿乾淨 JSON 自己加的設定(工作簿 §8.3),
+# 所以這是驗證 TA 引入的變數,不是擴大作業 0-2。
+# 換模型比較留在 W1,餵更多觀測資料留在 W2,本檔都不碰。
+#
+# 跟 run_0_2_score_variance.py 的差別只有一個:`reasoning` 從關改成開到 high。
+# 題目、prompt、判定規則、temperature 與 seed 全部沿用,單一變數。
+#
+# 只跑一輪 5 題。這一輪要回答的是「分數會不會變」,不是「分數穩不穩」。
+#
+# ⚠️ 這個模型的思考過程是直接寫在 `message.content` 的純文字裡,不是走 OpenRouter
+# 的 reasoning 欄位,所以 `exclude: true` 沒有作用(2026-08-23 實測)。答案要從
+# content 的尾端抓最後一個 JSON 物件出來。
+#
+# 成本:5 次請求,每次輸出約 5000 token,估計 $0.007。
+#
+# 跑法:
+#     docker compose run --rm app uv run --with pyyaml python experiments/W00/0-2-score-variance/run_0_2_reasoning_check.py
 
 import json
 import os
@@ -36,8 +35,8 @@ OUT_DIR = "experiments/W00/0-2-score-variance/out/0-2-reasoning"
 JSON_RE = re.compile(r"\{[^{}]*\"root_cause_id\"[^{}]*\}")
 
 
+# 從一長串思考過程的尾端,抓最後一個帶 root_cause_id 的 JSON 物件。
 def extract_answer(text: str) -> str:
-    """從一長串思考過程的尾端,抓最後一個帶 root_cause_id 的 JSON 物件。"""
     hits = JSON_RE.findall(text)
     if not hits:
         return ""

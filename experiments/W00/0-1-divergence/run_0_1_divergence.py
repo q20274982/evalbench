@@ -1,23 +1,22 @@
-"""W00 作業 0-1|同一個問題問二十次,量輸出分歧。
-
-跑兩組,每組 20 次,同一個 prompt、同一份輸入:
-  A 組 = 不設 temperature、不設 seed(供應商預設)
-  B 組 = temperature=0 且 seed 固定
-兩組的差別只有這兩個旋鈕,其他一律相同。
-
-輸入是 ITBench-Lite Scenario-105 的一份告警快照(2.5KB),
-不是整包 574MB 的場景——這一題量的是「同樣輸入下輸出穩不穩」,
-輸入越小,分歧越不可能來自「模型讀到不一樣的東西」。
-
-只用 Python 標準庫(作業 0-4 才會建 uv 專案,見 check_api.py 檔頭)。
-provider 鎖 Alibaba、allow_fallbacks=false,理由見 W00 工作簿 §3。
-
-成本估計:40 次請求,每次輸入約 0.9k token、輸出實測約 30 token,
-以 $0.065 / $0.260 每百萬 token 計,合計估計不到 $0.01(實測見工作簿 §5.1)。
-
-跑法:
-    docker compose run --rm app python experiments/W00/0-1-divergence/run_0_1_divergence.py
-"""
+# W00 作業 0-1|同一個問題問二十次,量輸出分歧。
+#
+# 跑兩組,每組 20 次,同一個 prompt、同一份輸入:
+#   A 組 = 不設 temperature、不設 seed(供應商預設)
+#   B 組 = temperature=0 且 seed 固定
+# 兩組的差別只有這兩個旋鈕,其他一律相同。
+#
+# 輸入是 ITBench-Lite Scenario-105 的一份告警快照(2.5KB),
+# 不是整包 574MB 的場景——這一題量的是「同樣輸入下輸出穩不穩」,
+# 輸入越小,分歧越不可能來自「模型讀到不一樣的東西」。
+#
+# 只用 Python 標準庫(作業 0-4 才會建 uv 專案,見 check_api.py 檔頭)。
+# provider 鎖 Alibaba、allow_fallbacks=false,理由見 W00 工作簿 §3。
+#
+# 成本估計:40 次請求,每次輸入約 0.9k token、輸出實測約 30 token,
+# 以 $0.065 / $0.260 每百萬 token 計,合計估計不到 $0.01(實測見工作簿 §5.1)。
+#
+# 跑法:
+#     docker compose run --rm app python experiments/W00/0-1-divergence/run_0_1_divergence.py
 
 import glob
 import hashlib
@@ -49,8 +48,8 @@ PROMPT_TEMPLATE = """你是值班的 SRE。下面是一個 Kubernetes 叢集在�
 """
 
 
+# 回傳 (檔案路徑, 檔案內容)。挑 alerts_in_alerting_state 那一份。
 def load_alerts() -> tuple[str, str]:
-    """回傳 (檔案路徑, 檔案內容)。挑 alerts_in_alerting_state 那一份。"""
     hits = sorted(glob.glob(f"{SCENARIO_GLOB}/alerts/alerts_in_alerting_state_*.json"))
     if not hits:
         raise SystemExit(
@@ -61,8 +60,8 @@ def load_alerts() -> tuple[str, str]:
     return path, open(path, encoding="utf-8").read()
 
 
+# 打一次 API。pinned=True 時送 temperature=0 與固定 seed。
 def call_once(prompt: str, pinned: bool) -> dict:
-    """打一次 API。pinned=True 時送 temperature=0 與固定 seed。"""
     body = {
         "model": os.environ["OPENROUTER_MODEL"],
         "messages": [{"role": "user", "content": prompt}],
@@ -86,8 +85,8 @@ def call_once(prompt: str, pinned: bool) -> dict:
         return json.load(resp)
 
 
+# 跑一組 N_RUNS 次,每次的完整回應存成一個檔,回傳 20 份輸出文字。
 def run_group(label: str, prompt: str, pinned: bool) -> list[str]:
-    """跑一組 N_RUNS 次,每次的完整回應存成一個檔,回傳 20 份輸出文字。"""
     out_dir = os.path.join(OUT_DIR, label)
     os.makedirs(out_dir, exist_ok=True)
     texts = []
@@ -118,8 +117,8 @@ def run_group(label: str, prompt: str, pinned: bool) -> list[str]:
     return texts
 
 
+# §3 只報「幾份逐字相同」。差在哪不由腳本判斷,由 Calvin 自己看檔案。
 def report(label: str, texts: list[str]) -> None:
-    """§3 只報「幾份逐字相同」。差在哪不由腳本判斷,由 Calvin 自己看檔案。"""
     groups: dict[str, list[int]] = {}
     for i, t in enumerate(texts, 1):
         groups.setdefault(hashlib.sha256(t.encode()).hexdigest(), []).append(i)

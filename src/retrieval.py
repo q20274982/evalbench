@@ -1,23 +1,22 @@
-"""檢索層(被測系統):從一題的告警與 events 組查詢,在同一題的塊裡做向量搜尋。
-
-規格出處:R01 `§12` 的查詢設計(Calvin 2026-09-29),加上 2026-10-11 的兩個決定:
-  - 改動前的起點先不用時間窗:events 不看時間,Warning 優先、由新到舊取 5 筆
-  - events 進查詢的字,兩種都跑:"raw" = 塊的原文;"fields" = reason、note、regarding 的 kind 與 name
-查詢的組法也兩種都跑(R01 §12 的對照實驗):"one" = 壓成一個查詢;"each" = 一筆一個查詢再用 RRF 合併。
-混合搜尋(§5,W02 §9.2「兩份名次表怎麼合併」「關鍵字搜尋的設定」,Calvin 2026-10-11):
-  - 關鍵字搜尋:任一個字就算命中,Postgres 內建 ts_rank 打分
-  - 兩種都跑:拆字前把 / . : 換成空白與否(split);english / simple(ts_config)
-  - 向量與關鍵字的名次表用 RRF 合併(常數 60,每份取前 100);"each" 時兩種合併都跑:
-    "flat" = 2N 份一次丟進 RRF;"two_level" = 向量、關鍵字各自先合成一份再 RRF
-
-本檔不讀答案檔(INV-13),只讀 retrieval.chunks 裡的塊。
-查詢向量算一次就存進 retrieval.query_vectors:DeepInfra 同一段字每次的向量不完全一樣,
-不存的話「每個設定跑 1 次」的前提(R01 §12「重跑結果相同」)就不成立。
-events 怎麼挑(pick,W02 §9.2,Calvin 2026-10-13),預設 "warning5" = 上面的起點:
-  - "warning_all":Warning 全部放,不設上限、不用 Normal 補(沒有 Warning 的題,events 就是空的)
-  - "dedup_reason" / "dedup_kind":照起點的順序往下走,reason(或 regarding 的 kind)
-    已經挑過就跳過,湊滿 5 筆
-"""
+# 檢索層(被測系統):從一題的告警與 events 組查詢,在同一題的塊裡做向量搜尋。
+#
+# 規格出處:R01 `§12` 的查詢設計(Calvin 2026-09-29),加上 2026-10-11 的兩個決定:
+#   - 改動前的起點先不用時間窗:events 不看時間,Warning 優先、由新到舊取 5 筆
+#   - events 進查詢的字,兩種都跑:"raw" = 塊的原文;"fields" = reason、note、regarding 的 kind 與 name
+# 查詢的組法也兩種都跑(R01 §12 的對照實驗):"one" = 壓成一個查詢;"each" = 一筆一個查詢再用 RRF 合併。
+# 混合搜尋(§5,W02 §9.2「兩份名次表怎麼合併」「關鍵字搜尋的設定」,Calvin 2026-10-11):
+#   - 關鍵字搜尋:任一個字就算命中,Postgres 內建 ts_rank 打分
+#   - 兩種都跑:拆字前把 / . : 換成空白與否(split);english / simple(ts_config)
+#   - 向量與關鍵字的名次表用 RRF 合併(常數 60,每份取前 100);"each" 時兩種合併都跑:
+#     "flat" = 2N 份一次丟進 RRF;"two_level" = 向量、關鍵字各自先合成一份再 RRF
+#
+# 本檔不讀答案檔(INV-13),只讀 retrieval.chunks 裡的塊。
+# 查詢向量算一次就存進 retrieval.query_vectors:DeepInfra 同一段字每次的向量不完全一樣,
+# 不存的話「每個設定跑 1 次」的前提(R01 §12「重跑結果相同」)就不成立。
+# events 怎麼挑(pick,W02 §9.2,Calvin 2026-10-13),預設 "warning5" = 上面的起點:
+#   - "warning_all":Warning 全部放,不設上限、不用 Normal 補(沒有 Warning 的題,events 就是空的)
+#   - "dedup_reason" / "dedup_kind":照起點的順序往下走,reason(或 regarding 的 kind)
+#     已經挑過就跳過,湊滿 5 筆
 
 import json
 import re
@@ -50,8 +49,8 @@ CREATE TABLE IF NOT EXISTS {chunk_store.SCHEMA}.query_vectors (
 
 
 # §2 組查詢
+# 告警塊一欄一行寫成 `欄位: 值`,description 可能跨好幾行,值一路收到下一個欄位名為止。
 def _alert_fields(text: str) -> dict[str, str]:
-    """告警塊一欄一行寫成 `欄位: 值`,description 可能跨好幾行,值一路收到下一個欄位名為止。"""
     marks = list(ALERT_FIELD_RE.finditer(text))
     out = {}
     for m, nxt in zip(marks, marks[1:] + [None], strict=False):
@@ -59,8 +58,8 @@ def _alert_fields(text: str) -> dict[str, str]:
     return out
 
 
+# 回傳 (查詢文字, 用到的塊 id)。每一塊告警都用到了,文字相同的只是不重複放進查詢。
 def alert_texts(conn: psycopg.Connection, scenario: str) -> tuple[list[str], list[str]]:
-    """回傳 (查詢文字, 用到的塊 id)。每一塊告警都用到了,文字相同的只是不重複放進查詢。"""
     rows = conn.execute(
         f"SELECT id, text FROM {chunk_store.SCHEMA}.chunks "
         "WHERE scenario = %s AND source = 'alerts' ORDER BY id",
@@ -78,10 +77,10 @@ def alert_texts(conn: psycopg.Connection, scenario: str) -> tuple[list[str], lis
     return out, [r[0] for r in rows]
 
 
+# 回傳 (查詢文字, 用到的塊 id)。
 def event_texts(
     conn: psycopg.Connection, scenario: str, mode: str, pick: str = "warning5"
 ) -> tuple[list[str], list[str]]:
-    """回傳 (查詢文字, 用到的塊 id)。"""
     rows = conn.execute(
         f"SELECT id, text FROM {chunk_store.SCHEMA}.chunks "
         "WHERE scenario = %s AND source = 'events'",
@@ -112,8 +111,8 @@ def event_texts(
     return out, [e[2] for e in chosen]
 
 
+# evs 已照起點排好(Warning 優先、由新到舊、塊 id)。
 def _pick(evs: list[tuple], pick: str) -> list[tuple]:
-    """evs 已照起點排好(Warning 優先、由新到舊、塊 id)。"""
     if pick == "warning5":
         return evs[:N_EVENTS]
     if pick == "warning_all":
@@ -137,6 +136,7 @@ def _pick(evs: list[tuple], pick: str) -> list[tuple]:
     raise ValueError(f"pick 只能是 {PICKS}:{pick}")
 
 
+# 回傳 (查詢, 組查詢用到的塊 id)。
 def build_queries(
     conn: psycopg.Connection,
     scenario: str,
@@ -144,7 +144,6 @@ def build_queries(
     combine: str,
     pick: str = "warning5",
 ) -> tuple[list[str], list[str]]:
-    """回傳 (查詢, 組查詢用到的塊 id)。"""
     a_txt, a_ids = alert_texts(conn, scenario)
     e_txt, e_ids = event_texts(conn, scenario, events_mode, pick)
     items = a_txt + e_txt
@@ -152,8 +151,8 @@ def build_queries(
 
 
 # §3 查詢向量(算一次就存)
+# 回傳 {查詢文字: pgvector 字串}。
 def query_vectors(conn: psycopg.Connection, texts: list[str]) -> dict[str, str]:
-    """回傳 {查詢文字: pgvector 字串}。"""
     conn.execute(QUERY_DDL)
     keys = {t: chunk_store.md5(t) for t in texts}
     have = dict(
@@ -186,11 +185,11 @@ def query_vectors(conn: psycopg.Connection, texts: list[str]) -> dict[str, str]:
 
 
 # §4 搜尋
+# 同一題的塊裡,cosine 距離由近到遠的前 k 個塊 id。全表精確排序(不建近似索引),
+# 同距離照塊 id 排(R01 §12「同分時加次要鍵」)。exclude 裡的塊不回傳。
 def vector_search(
     conn: psycopg.Connection, scenario: str, qvec: str, k: int, exclude: list[str]
 ) -> list[str]:
-    """同一題的塊裡,cosine 距離由近到遠的前 k 個塊 id。全表精確排序(不建近似索引),
-    同距離照塊 id 排(R01 §12「同分時加次要鍵」)。exclude 裡的塊不回傳。"""
     rows = conn.execute(
         f"SELECT id FROM {chunk_store.SCHEMA}.chunks WHERE scenario = %s AND NOT (id = ANY(%s)) "
         "ORDER BY embedding <=> %s::vector, id LIMIT %s",
@@ -207,6 +206,8 @@ def rrf(rankings: list[list[str]], k: int) -> list[str]:
     return sorted(score, key=lambda c: (-score[c], c))[:k]
 
 
+# exclude_query_chunks:搜尋結果排除組查詢用到的塊(告警全部 + 挑出的 events),
+# 因為那些 agent 本來就看得到(Calvin 2026-10-11 選 A)。False = code repo d5123d0 的行為。
 def search(
     conn: psycopg.Connection,
     scenario: str,
@@ -216,8 +217,6 @@ def search(
     exclude_query_chunks: bool = True,
     pick: str = "warning5",
 ) -> list[str]:
-    """exclude_query_chunks:搜尋結果排除組查詢用到的塊(告警全部 + 挑出的 events),
-    因為那些 agent 本來就看得到(Calvin 2026-10-11 選 A)。False = code repo d5123d0 的行為。"""
     queries, used = build_queries(conn, scenario, events_mode, combine, pick)
     exclude = used if exclude_query_chunks else []
     vecs = query_vectors(conn, queries)
@@ -229,16 +228,20 @@ def search(
 
 
 # §5 關鍵字搜尋與混合搜尋
+# 把已正規化的字組成「任一個就算」的 tsquery 文字。單引號內 \\ 與 '' 是 tsquery 的跳脫寫法。
 def _tsquery_any(lexemes: list[str]) -> str:
-    """把已正規化的字組成「任一個就算」的 tsquery 文字。單引號內 \\ 與 '' 是 tsquery 的跳脫寫法。"""
     return " | ".join("'" + x.replace("\\", "\\\\").replace("'", "''") + "'" for x in lexemes)
 
 
+# 塊這一側送進 to_tsvector 的 SQL 運算式;先算好 tsvector 的表也要用同一條。
 def doc_expr(split: bool) -> str:
-    """塊這一側送進 to_tsvector 的 SQL 運算式;先算好 tsvector 的表也要用同一條。"""
     return "regexp_replace(text, '[/.:]', ' ', 'g')" if split else "text"
 
 
+# 每個查詢一份名次表:同一題的塊裡,含查詢任一個字的塊照 ts_rank 由高到低,同分照塊 id,
+# 取前 depth 個。exclude 裡的塊不回傳。不建索引(W02 §9.2)。
+# 塊的 tsvector 預設每次現算;tsv_table 給了就改讀那張表裡先算好的
+# (欄位 id, scenario, ts_config, split, v,算法須與這裡現算的相同),只為了省時間。
 def keyword_rankings(
     conn: psycopg.Connection,
     scenario: str,
@@ -249,10 +252,6 @@ def keyword_rankings(
     split: bool,
     tsv_table: str | None = None,
 ) -> list[list[str]]:
-    """每個查詢一份名次表:同一題的塊裡,含查詢任一個字的塊照 ts_rank 由高到低,同分照塊 id,
-    取前 depth 個。exclude 裡的塊不回傳。不建索引(W02 §9.2)。
-    塊的 tsvector 預設每次現算;tsv_table 給了就改讀那張表裡先算好的
-    (欄位 id, scenario, ts_config, split, v,算法須與這裡現算的相同),只為了省時間。"""
     tqs = []
     for q in queries:
         text = SPLIT_RE.sub(" ", q) if split else q
@@ -308,6 +307,8 @@ def keyword_rankings(
     return out
 
 
+# 向量 + 關鍵字,RRF 合併。排除組查詢用到的塊,做法同 search()。
+# fuse 只在 combine="each" 有差:"flat" / "two_level"(見檔頭)。
 def hybrid_search(
     conn: psycopg.Connection,
     scenario: str,
@@ -320,8 +321,6 @@ def hybrid_search(
     tsv_table: str | None = None,
     pick: str = "warning5",
 ) -> list[str]:
-    """向量 + 關鍵字,RRF 合併。排除組查詢用到的塊,做法同 search()。
-    fuse 只在 combine="each" 有差:"flat" / "two_level"(見檔頭)。"""
     queries, used = build_queries(conn, scenario, events_mode, combine, pick)
     vecs = query_vectors(conn, queries)
     vec_lists = [vector_search(conn, scenario, vecs[q], PER_QUERY_DEPTH, used) for q in queries]

@@ -1,12 +1,11 @@
-"""塊與向量的存放層:Postgres + pgvector 的 `retrieval.chunks` 表。
-
-一列一塊,欄位對齊 chunking.py 的輸出,再加上向量與它是怎麼算出來的。
-附帶欄位(namespace、count、first_seen、last_seen、extra)只存不進 embedding(SPEC §8.3、§8.4)。
-`text` 永遠是塊的原文;向量若是截短後算的,`sent_chars` 會小於 `length(text)`。
-
-續跑:`done()` 回傳已存的 {id: 原文 md5}。原文 md5 對不上的塊(切法改過)不算做完,
-會被重算並覆寫,避免舊向量配新文字。
-"""
+# 塊與向量的存放層:Postgres + pgvector 的 `retrieval.chunks` 表。
+#
+# 一列一塊,欄位對齊 chunking.py 的輸出,再加上向量與它是怎麼算出來的。
+# 附帶欄位(namespace、count、first_seen、last_seen、extra)只存不進 embedding(SPEC §8.3、§8.4)。
+# `text` 永遠是塊的原文;向量若是截短後算的,`sent_chars` 會小於 `length(text)`。
+#
+# 續跑:`done()` 回傳已存的 {id: 原文 md5}。原文 md5 對不上的塊(切法改過)不算做完,
+# 會被重算並覆寫,避免舊向量配新文字。
 
 import hashlib
 import json

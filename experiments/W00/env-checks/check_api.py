@@ -1,9 +1,8 @@
-"""W00 環境前置|確認模型 API 打得通。
-
-只用 Python 標準庫,不裝任何套件——作業 0-4 才會建 uv 專案與 config.py,
-在那之前這支腳本是「API 打得通」這一格唯一的驗證工具。
-0-4 之後它的工作由 src/config.py + tests/ 接手,這支就可以刪掉。
-"""
+# W00 環境前置|確認模型 API 打得通。
+#
+# 只用 Python 標準庫,不裝任何套件——作業 0-4 才會建 uv 專案與 config.py,
+# 在那之前這支腳本是「API 打得通」這一格唯一的驗證工具。
+# 0-4 之後它的工作由 src/config.py + tests/ 接手,這支就可以刪掉。
 
 import json
 import os

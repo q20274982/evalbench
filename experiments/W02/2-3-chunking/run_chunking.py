@@ -1,21 +1,20 @@
-"""作業 2-3|照 SPEC §8.4 切 25 題,驗「別人讀完能照著切出一樣的塊」的前兩關。
-
-問題:規格寫得夠不夠細,細到照著做就切得出確定的結果?這支驗兩件事:
-  1. 同一份輸入在兩個獨立的 process 各切一次,輸出逐位元相同(sha256 一樣)。
-     分成兩個 process 是因為 Python 的字串 hash 每個 process 不同,同一個 process 跑兩次
-     會蓋掉「靠 set / dict 迭代順序」這類不確定性
-  2. 各來源的塊數印出來,跟 SPEC §8.4 寫的舊數字並排(比對基準是規格原文,不是本程式算的)
-
-第三關(程式裡每個判斷分支都對得到 §8.4 的一句)不在這支,是交付時的對照表。
-
-輸入:25 題調整用場景。留出的 10 題寫死排除(W02 工作簿 §3,Calvin 2026-10-04 決定),
-不打開、不印數字;不讀 ground_truth.yaml。純讀檔,不打 API、不連資料庫。
-
-跑法:
-    uv run python experiments/W02/2-3-chunking/run_chunking.py           # 切兩次並比對
-    uv run python experiments/W02/2-3-chunking/run_chunking.py --once out/x.jsonl  # 只切一次
-輸出:out/run1.jsonl、out/run2.jsonl(不進版控)、out/counts.json
-"""
+# 作業 2-3|照 SPEC §8.4 切 25 題,驗「別人讀完能照著切出一樣的塊」的前兩關。
+#
+# 問題:規格寫得夠不夠細,細到照著做就切得出確定的結果?這支驗兩件事:
+#   1. 同一份輸入在兩個獨立的 process 各切一次,輸出逐位元相同(sha256 一樣)。
+#      分成兩個 process 是因為 Python 的字串 hash 每個 process 不同,同一個 process 跑兩次
+#      會蓋掉「靠 set / dict 迭代順序」這類不確定性
+#   2. 各來源的塊數印出來,跟 SPEC §8.4 寫的舊數字並排(比對基準是規格原文,不是本程式算的)
+#
+# 第三關(程式裡每個判斷分支都對得到 §8.4 的一句)不在這支,是交付時的對照表。
+#
+# 輸入:25 題調整用場景。留出的 10 題寫死排除(W02 工作簿 §3,Calvin 2026-10-04 決定),
+# 不打開、不印數字;不讀 ground_truth.yaml。純讀檔,不打 API、不連資料庫。
+#
+# 跑法:
+#     uv run python experiments/W02/2-3-chunking/run_chunking.py           # 切兩次並比對
+#     uv run python experiments/W02/2-3-chunking/run_chunking.py --once out/x.jsonl  # 只切一次
+# 輸出:out/run1.jsonl、out/run2.jsonl(不進版控)、out/counts.json
 
 import collections
 import hashlib

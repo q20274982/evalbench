@@ -1,22 +1,21 @@
-"""作業 2-3|traces 的 ResourceAttributes 只留 k8s.* 與 service.*,丟掉的 key 裡有沒有根因名字。
-
-問題:traces 前處理打算丟掉 ResourceAttributes 的 host.* / os.* / telemetry.* / container.* / process.*。
-丟之前要說得出「怎麼知道答案不在裡面」。這支逐題檢查:根因或故障實體的名字,
-有沒有「只出現在被丟掉的 key、留下的 key 裡沒有」的 span。
-
-輸入(純讀檔,不打 API、不連資料庫):
-  - 35 個場景資料夾,先排除 W2 留出不看的 10 題(同 count_fault_types.py)
-  - 剩下 25 題的 ground_truth.yaml:root_cause: true 的 group,加上 fault 的 entity.group_id 指到的 group;
-    取它們的 filter(名稱規則)與 name(沒有 filter 時用,逐字比)
-  - 同一題的 otel_traces_raw.tsv 每個 span 的 ResourceAttributes
-不做的事:
-  - 只檢查名字(三道檢查的第三道),不檢查「錯成什麼樣」的證據在不在被丟的 key 裡
-  - filter 寫成 glob 的 `*xxx` 無法編譯時,把開頭的 `*` 換成 `.*`;S38 的 `*.*` 換完會比對到一切,那一列看不出東西
-
-跑法:
-    uv run python experiments/W02/2-3-fault-types/check_dropped_resource_keys.py
-輸出:終端每題一行;最後一欄「只在丟掉的 key」是要看的數字,0 = 丟掉不會丟到根因名字
-"""
+# 作業 2-3|traces 的 ResourceAttributes 只留 k8s.* 與 service.*,丟掉的 key 裡有沒有根因名字。
+#
+# 問題:traces 前處理打算丟掉 ResourceAttributes 的 host.* / os.* / telemetry.* / container.* / process.*。
+# 丟之前要說得出「怎麼知道答案不在裡面」。這支逐題檢查:根因或故障實體的名字,
+# 有沒有「只出現在被丟掉的 key、留下的 key 裡沒有」的 span。
+#
+# 輸入(純讀檔,不打 API、不連資料庫):
+#   - 35 個場景資料夾,先排除 W2 留出不看的 10 題(同 count_fault_types.py)
+#   - 剩下 25 題的 ground_truth.yaml:root_cause: true 的 group,加上 fault 的 entity.group_id 指到的 group;
+#     取它們的 filter(名稱規則)與 name(沒有 filter 時用,逐字比)
+#   - 同一題的 otel_traces_raw.tsv 每個 span 的 ResourceAttributes
+# 不做的事:
+#   - 只檢查名字(三道檢查的第三道),不檢查「錯成什麼樣」的證據在不在被丟的 key 裡
+#   - filter 寫成 glob 的 `*xxx` 無法編譯時,把開頭的 `*` 換成 `.*`;S38 的 `*.*` 換完會比對到一切,那一列看不出東西
+#
+# 跑法:
+#     uv run python experiments/W02/2-3-fault-types/check_dropped_resource_keys.py
+# 輸出:終端每題一行;最後一欄「只在丟掉的 key」是要看的數字,0 = 丟掉不會丟到根因名字
 
 # ruff: noqa: E501
 import ast

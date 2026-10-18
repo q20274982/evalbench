@@ -1,14 +1,13 @@
-"""embedding 層:把塊的文字送 OpenRouter(鎖 DeepInfra)換成向量。
-
-決定的出處:
-  - 走 OpenRouter 鎖 DeepInfra、同時 16 個請求:Learning Plan §4 W7 2026-10-09 範圍變更,
-    探針數字在 W02 工作簿環境前置(embedding 模型那一項)
-  - 超過 8192 token 的塊:收到退回就按比例截短再重送,記下截短後送了幾個字元
-    (Calvin 2026-10-09 選 A)。塊的原文不動,截短只影響向量
-
-DeepInfra 的「太長」錯誤不說是批裡第幾段,所以批裡有一段太長時先對半拆,
-拆到剩一段再截短。
-"""
+# embedding 層:把塊的文字送 OpenRouter(鎖 DeepInfra)換成向量。
+#
+# 決定的出處:
+#   - 走 OpenRouter 鎖 DeepInfra、同時 16 個請求:Learning Plan §4 W7 2026-10-09 範圍變更,
+#     探針數字在 W02 工作簿環境前置(embedding 模型那一項)
+#   - 超過 8192 token 的塊:收到退回就按比例截短再重送,記下截短後送了幾個字元
+#     (Calvin 2026-10-09 選 A)。塊的原文不動,截短只影響向量
+#
+# DeepInfra 的「太長」錯誤不說是批裡第幾段,所以批裡有一段太長時先對半拆,
+# 拆到剩一段再截短。
 
 import json
 import re

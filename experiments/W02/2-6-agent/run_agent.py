@@ -1,28 +1,27 @@
-"""作業 2-6 最後一步:混合搜尋接進 agent,調整用 25 題 × 3 輪,跟 W1 基準線同 25 題比。
-
-設定出處:W02 工作簿 §9.2「接進 agent 的設定」(Calvin 2026-10-12)
-  prompt  = 組查詢用到的東西(告警去重後 + 那 5 筆 events 原文)+ 混合搜尋前 10 塊
-  搜尋設定兩組:A = one/raw 不換 simple;B = each/raw 換 simple 一次合併
-  判準(跑之前定):逐題比,一題 3 輪對 2 輪以上算對(多數決),淨贏 3 題以上才算變好
-對照組:experiments/W01/1-3-baseline/out/1_3_records.json 裡同 25 題(不重跑 W1)。
-模型、provider、temperature、seed、max_tokens 跟 W1 相同(src/pipeline.py build_request_body)。
-評分照 W1:src/parsing.py 解析、src/scoring.py 評分;解析失敗或呼叫失敗算 0 分、留在分母。
-
-設定組(第二個參數,預設 1012):
-  1012 — 上面兩組,events 用起點挑法(code repo 262229f 的結果)
-  1013 — events 換挑法(W02 §9.2,Calvin 2026-10-13 照 TA 建議):
-         B + dedup_kind(同 regarding kind 只留一筆);A + warning_all(Warning 全部放)
-
-兩個模式:
-  dry  — 不打 API。組好 50 份 prompt,印長度與估計花費。
-  live — 打 API,2 組 × 25 題 × 3 輪 = 150 次。花費累計超過 STOP_COST 就停。
-
-跑法(從 repo 根目錄,DB 要先起來):
-    POSTGRES_HOST=localhost uv run python experiments/W02/2-6-agent/run_agent.py dry
-    POSTGRES_HOST=localhost uv run python experiments/W02/2-6-agent/run_agent.py live
-    POSTGRES_HOST=localhost uv run python experiments/W02/2-6-agent/run_agent.py live 1013
-INV-13:ground_truth.yaml 不進 prompt;只在 §3 評分那一側被讀。
-"""
+# 作業 2-6 最後一步:混合搜尋接進 agent,調整用 25 題 × 3 輪,跟 W1 基準線同 25 題比。
+#
+# 設定出處:W02 工作簿 §9.2「接進 agent 的設定」(Calvin 2026-10-12)
+#   prompt  = 組查詢用到的東西(告警去重後 + 那 5 筆 events 原文)+ 混合搜尋前 10 塊
+#   搜尋設定兩組:A = one/raw 不換 simple;B = each/raw 換 simple 一次合併
+#   判準(跑之前定):逐題比,一題 3 輪對 2 輪以上算對(多數決),淨贏 3 題以上才算變好
+# 對照組:experiments/W01/1-3-baseline/out/1_3_records.json 裡同 25 題(不重跑 W1)。
+# 模型、provider、temperature、seed、max_tokens 跟 W1 相同(src/pipeline.py build_request_body)。
+# 評分照 W1:src/parsing.py 解析、src/scoring.py 評分;解析失敗或呼叫失敗算 0 分、留在分母。
+#
+# 設定組(第二個參數,預設 1012):
+#   1012 — 上面兩組,events 用起點挑法(code repo 262229f 的結果)
+#   1013 — events 換挑法(W02 §9.2,Calvin 2026-10-13 照 TA 建議):
+#          B + dedup_kind(同 regarding kind 只留一筆);A + warning_all(Warning 全部放)
+#
+# 兩個模式:
+#   dry  — 不打 API。組好 50 份 prompt,印長度與估計花費。
+#   live — 打 API,2 組 × 25 題 × 3 輪 = 150 次。花費累計超過 STOP_COST 就停。
+#
+# 跑法(從 repo 根目錄,DB 要先起來):
+#     POSTGRES_HOST=localhost uv run python experiments/W02/2-6-agent/run_agent.py dry
+#     POSTGRES_HOST=localhost uv run python experiments/W02/2-6-agent/run_agent.py live
+#     POSTGRES_HOST=localhost uv run python experiments/W02/2-6-agent/run_agent.py live 1013
+# INV-13:ground_truth.yaml 不進 prompt;只在 §3 評分那一側被讀。
 
 import json
 import sys

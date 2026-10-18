@@ -1,25 +1,24 @@
-"""作業 2-3|alerts / metrics / objects 打算丟的欄位:各空幾成、根因名字有沒有只出現在那裡。
-
-問題:這三種來源的去留,Calvin 2026-10-08 交給 TA 判斷。每一筆紀錄先攤成「欄位路徑 → 字串」,
-分成暫定留與打算丟兩組;這支替打算丟的每一組算「名字只在這裡」:這一組比對到名稱規則,
-而暫定留下的所有欄位都比對不到。0 = 名字層面丟了不會少。
-
-一筆紀錄是什麼:
-  - alerts:一則告警(alerts_at_*.json 的陣列元素;alerts_in_alerting_state_*.json 取 data.alerts,§7 7-2;
-    S11 的告警檔在場景根目錄,§7 7-1)
-  - metrics:pod_* / service_* TSV 的一列;tags 拆成 tags.<key>。同一檔裡除了 timestamp / value 以外全相同的列只算一筆
-    (數字欄比對不到名字,逐列檢查要跑超過 10 分鐘),所以 metrics 的「筆數」是數列數,不是列數
-  - objects:k8s_objects_raw.tsv 的一列;外層 16 欄各自一組,Body 的 JSON 攤到第二層(例 metadata.managedFields)
-
-輸入(純讀檔,不打 API、不連資料庫):25 題調整用場景(排除留出 10 題,同 count_fault_types.py);
-名稱規則取法同 check_dropped_resource_keys.py,用 re.search 在整個字串裡找,比 SPEC §8.2 寬,只會多報。
-2026-10-08 跑出的誤報:objects spec[CustomResourceDefinition] S33 56 筆是 schema 說明文字的 `read-only` 恰好含 `ad-`。
-不做的事:只檢查名字,不檢查「錯成什麼樣」的證據;不決定要不要過濾整筆紀錄或去重。
-
-跑法:
-    uv run python experiments/W02/2-3-fault-types/check_dropped_other_sources.py [alerts] [metrics] [objects]
-    (不給參數 = 三種都跑)
-"""
+# 作業 2-3|alerts / metrics / objects 打算丟的欄位:各空幾成、根因名字有沒有只出現在那裡。
+#
+# 問題:這三種來源的去留,Calvin 2026-10-08 交給 TA 判斷。每一筆紀錄先攤成「欄位路徑 → 字串」,
+# 分成暫定留與打算丟兩組;這支替打算丟的每一組算「名字只在這裡」:這一組比對到名稱規則,
+# 而暫定留下的所有欄位都比對不到。0 = 名字層面丟了不會少。
+#
+# 一筆紀錄是什麼:
+#   - alerts:一則告警(alerts_at_*.json 的陣列元素;alerts_in_alerting_state_*.json 取 data.alerts,§7 7-2;
+#     S11 的告警檔在場景根目錄,§7 7-1)
+#   - metrics:pod_* / service_* TSV 的一列;tags 拆成 tags.<key>。同一檔裡除了 timestamp / value 以外全相同的列只算一筆
+#     (數字欄比對不到名字,逐列檢查要跑超過 10 分鐘),所以 metrics 的「筆數」是數列數,不是列數
+#   - objects:k8s_objects_raw.tsv 的一列;外層 16 欄各自一組,Body 的 JSON 攤到第二層(例 metadata.managedFields)
+#
+# 輸入(純讀檔,不打 API、不連資料庫):25 題調整用場景(排除留出 10 題,同 count_fault_types.py);
+# 名稱規則取法同 check_dropped_resource_keys.py,用 re.search 在整個字串裡找,比 SPEC §8.2 寬,只會多報。
+# 2026-10-08 跑出的誤報:objects spec[CustomResourceDefinition] S33 56 筆是 schema 說明文字的 `read-only` 恰好含 `ad-`。
+# 不做的事:只檢查名字,不檢查「錯成什麼樣」的證據;不決定要不要過濾整筆紀錄或去重。
+#
+# 跑法:
+#     uv run python experiments/W02/2-3-fault-types/check_dropped_other_sources.py [alerts] [metrics] [objects]
+#     (不給參數 = 三種都跑)
 
 # ruff: noqa: E501
 import collections

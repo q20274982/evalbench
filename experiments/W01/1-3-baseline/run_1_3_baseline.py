@@ -78,8 +78,8 @@ def pick_scenarios() -> list[str]:
 
 
 # §3 造輸入切片(不碰 ground_truth.yaml)
+# 回傳 (告警文字, events 文字)。跟作業 1-2 的 §3 同一套切法。
 def build_slice(scenario: str) -> tuple[str, str]:
-    """回傳 (告警文字, events 文字)。跟作業 1-2 的 §3 同一套切法。"""
     root = DATASET_ROOT / scenario
 
     # 取時間最後的那份快照,只留 firing 的。檔名樣式跟作業 1-2 一樣寫死成
@@ -119,8 +119,8 @@ def build_slice(scenario: str) -> tuple[str, str]:
 
 
 # §4 打模型
+# 送出去的整包 body。抽成函式是因為 §7.6.1 ② 要把它原樣存進 trace。
 def build_request_body(prompt: str) -> dict:
-    """送出去的整包 body。抽成函式是因為 §7.6.1 ② 要把它原樣存進 trace。"""
     return {
         "model": settings.openrouter_model,
         "messages": [{"role": "user", "content": prompt}],
@@ -148,12 +148,11 @@ def call_model(body: dict) -> tuple[str, dict]:
 
 
 # §5 評一題(解析 → 評分)
+# 把一次原始輸出走完解析與評分,回傳一筆紀錄。
+#
+# ⑤:schema 沒過就沒有 Diagnosis 物件,entity 傳 None 進評分層,拿 0 分,
+# 但這一題仍然留在分母裡——分母是跑掉的題數,不是解析成功的題數。
 def judge(raw: str, scenario: str) -> dict:
-    """把一次原始輸出走完解析與評分,回傳一筆紀錄。
-
-    ⑤:schema 沒過就沒有 Diagnosis 物件,entity 傳 None 進評分層,拿 0 分,
-    但這一題仍然留在分母裡——分母是跑掉的題數,不是解析成功的題數。
-    """
     obs = inspect(raw)
     diag = obs["diagnosis"]
     entity = diag.root_cause_entity if diag is not None else None
@@ -250,11 +249,10 @@ def run_live() -> int:
 
 
 # §8 dry 模式(不打 API,看評分層在真實答案檔上怎麼判)
+# 拿手造的答案走評分層。
+#
+# 每一筆的期望值來自 ground_truth.yaml 或規格,不是任何模型的輸出。
 def run_dry() -> int:
-    """拿手造的答案走評分層。
-
-    每一筆的期望值來自 ground_truth.yaml 或規格,不是任何模型的輸出。
-    """
     cases = [
         ("Scenario-1", "load-generator-pod-1", "標準答案本身,第 1 階段就該中"),
         ("Scenario-1", "load-generator-service-1",

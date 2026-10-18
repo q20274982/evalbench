@@ -1,24 +1,23 @@
-"""作業 2-3|logs 16 欄:各空幾成、根因名字有沒有只出現在這一欄、嚴重程度欄位在 25 題裡用上沒有。
-
-問題:logs 前處理要決定 16 欄的去留(Calvin 2026-10-08 交給 TA 判斷)。TA 暫定留
-Timestamp / TraceId / SpanId / ServiceName / Body / LogAttributes / ResourceAttributes 的 k8s.* 與 service.*;
-這支替每一欄算「名字只在這一欄」:這一欄比對到名稱規則,而暫定留下的其他欄都比對不到。
-暫定留下的欄也算,用來看它是不是唯一的來源。
-
-輸入(純讀檔,不打 API、不連資料庫):
-  - 25 題調整用場景(排除留出 10 題,同 count_fault_types.py)
-  - 根因與故障實體的名稱規則,取法同 check_dropped_resource_keys.py
-  - 每題 otel_logs_raw.tsv 的每一筆(走 CSV 解析器,Body 有換行;資料集導覽 §4.4)
-算法:
-  - 「空」= 值是 ''、'[]'、'{}'、'None',或 TraceId / SpanId 全是 0
-  - ResourceAttributes 拆成兩欄:留下的 k8s.* / service.*(記為 ResourceAttributes[keep])與其餘(ResourceAttributes[drop])
-  - 名稱規則用 re.search 在整個字串裡找,比 SPEC §8.2 寬,只會多報
-2026-10-08 跑出的 ResourceAttributes[drop] S33 2,653 筆是誤報:`process.command` 的 `thread-stream` 裡恰好有 `ad-`
-另外印:SeverityNumber >= 17(ERROR 以上,一般知識)的筆數與出現在哪幾題
-
-跑法:
-    uv run python experiments/W02/2-3-fault-types/check_dropped_log_columns.py
-"""
+# 作業 2-3|logs 16 欄:各空幾成、根因名字有沒有只出現在這一欄、嚴重程度欄位在 25 題裡用上沒有。
+#
+# 問題:logs 前處理要決定 16 欄的去留(Calvin 2026-10-08 交給 TA 判斷)。TA 暫定留
+# Timestamp / TraceId / SpanId / ServiceName / Body / LogAttributes / ResourceAttributes 的 k8s.* 與 service.*;
+# 這支替每一欄算「名字只在這一欄」:這一欄比對到名稱規則,而暫定留下的其他欄都比對不到。
+# 暫定留下的欄也算,用來看它是不是唯一的來源。
+#
+# 輸入(純讀檔,不打 API、不連資料庫):
+#   - 25 題調整用場景(排除留出 10 題,同 count_fault_types.py)
+#   - 根因與故障實體的名稱規則,取法同 check_dropped_resource_keys.py
+#   - 每題 otel_logs_raw.tsv 的每一筆(走 CSV 解析器,Body 有換行;資料集導覽 §4.4)
+# 算法:
+#   - 「空」= 值是 ''、'[]'、'{}'、'None',或 TraceId / SpanId 全是 0
+#   - ResourceAttributes 拆成兩欄:留下的 k8s.* / service.*(記為 ResourceAttributes[keep])與其餘(ResourceAttributes[drop])
+#   - 名稱規則用 re.search 在整個字串裡找,比 SPEC §8.2 寬,只會多報
+# 2026-10-08 跑出的 ResourceAttributes[drop] S33 2,653 筆是誤報:`process.command` 的 `thread-stream` 裡恰好有 `ad-`
+# 另外印:SeverityNumber >= 17(ERROR 以上,一般知識)的筆數與出現在哪幾題
+#
+# 跑法:
+#     uv run python experiments/W02/2-3-fault-types/check_dropped_log_columns.py
 
 # ruff: noqa: E501
 import ast

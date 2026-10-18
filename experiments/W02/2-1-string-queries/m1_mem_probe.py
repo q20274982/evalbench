@@ -1,14 +1,13 @@
-"""在 M1 上跑,不在 Air 的容器裡跑(要 server 的 .venv 與 FlagEmbedding);檔案 scp 到 ~/bge-m3-server/ 執行。
-M1 記憶體探針:server 為什麼長到 38 GB,每次請求後清快取有沒有用(手冊 §13)。
-
-不經過 HTTP,直接用 server.py 同一種方式載入模型、同一組 encode 參數,
-依序跑一串長短不同的請求,每次之後記:耗時、PyTorch 已配置 / 向驅動要的 GPU 記憶體、
-行程 phys_footprint。
-
-跑法(在 M1,server 要先停):
-    cd ~/bge-m3-server && PYTORCH_ENABLE_MPS_FALLBACK=1 uv run python mem_probe.py baseline
-    cd ~/bge-m3-server && PYTORCH_ENABLE_MPS_FALLBACK=1 uv run python mem_probe.py empty_cache
-"""
+# 在 M1 上跑,不在 Air 的容器裡跑(要 server 的 .venv 與 FlagEmbedding);檔案 scp 到 ~/bge-m3-server/ 執行。
+# M1 記憶體探針:server 為什麼長到 38 GB,每次請求後清快取有沒有用(手冊 §13)。
+#
+# 不經過 HTTP,直接用 server.py 同一種方式載入模型、同一組 encode 參數,
+# 依序跑一串長短不同的請求,每次之後記:耗時、PyTorch 已配置 / 向驅動要的 GPU 記憶體、
+# 行程 phys_footprint。
+#
+# 跑法(在 M1,server 要先停):
+#     cd ~/bge-m3-server && PYTORCH_ENABLE_MPS_FALLBACK=1 uv run python mem_probe.py baseline
+#     cd ~/bge-m3-server && PYTORCH_ENABLE_MPS_FALLBACK=1 uv run python mem_probe.py empty_cache
 
 import json
 import os

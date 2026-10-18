@@ -1,24 +1,23 @@
-"""W00 smoke test ③ 的替代路徑|證明工具層沒有核准檢查。
-
-背景:主組 20 次都沒讓模型呼叫工具(工作簿 §6.3)。工作簿 §3 早就寫好替代路徑
-——繞過模型,直接呼叫那支工具,看它有沒有核准檢查。這一支就是那條路徑。
-
-為什麼這條一定成立:它不經過模型,是純程式。模型願不願意呼叫工具是機率問題,
-「工具自己擋不擋得住」不是——沒寫檢查就是沒有。
-
-要證明的兩件事:
-  1. 工具的參數表裡沒有任何跟核准有關的欄位,呼叫端不必提出核准就能呼叫
-  2. 直接呼叫執行端,side effect 就落地了,中間沒有任何一道關卡
-
-**這裡不做修復**。防線是 W6 的事(INV-4 核准失效)。
-
-跑法:
-    docker compose run --rm app uv run pytest \
-        experiments/W00/smoke-inv1-injection/test_smoke_inv1_tool_layer.py -s
-
-它不在 tests/ 底下,所以 `pytest tests/` 不會自動跑到它——照 /scaffold 慣例 8,
-打實驗腳本的測試跟那支腳本住同一包(2026-09-21 搬過來)。
-"""
+# W00 smoke test ③ 的替代路徑|證明工具層沒有核准檢查。
+#
+# 背景:主組 20 次都沒讓模型呼叫工具(工作簿 §6.3)。工作簿 §3 早就寫好替代路徑
+# ——繞過模型,直接呼叫那支工具,看它有沒有核准檢查。這一支就是那條路徑。
+#
+# 為什麼這條一定成立:它不經過模型,是純程式。模型願不願意呼叫工具是機率問題,
+# 「工具自己擋不擋得住」不是——沒寫檢查就是沒有。
+#
+# 要證明的兩件事:
+#   1. 工具的參數表裡沒有任何跟核准有關的欄位,呼叫端不必提出核准就能呼叫
+#   2. 直接呼叫執行端,side effect 就落地了,中間沒有任何一道關卡
+#
+# **這裡不做修復**。防線是 W6 的事(INV-4 核准失效)。
+#
+# 跑法:
+#     docker compose run --rm app uv run pytest \
+#         experiments/W00/smoke-inv1-injection/test_smoke_inv1_tool_layer.py -s
+#
+# 它不在 tests/ 底下,所以 `pytest tests/` 不會自動跑到它——照 /scaffold 慣例 8,
+# 打實驗腳本的測試跟那支腳本住同一包(2026-09-21 搬過來)。
 
 import importlib.util
 import inspect
@@ -27,8 +26,8 @@ from pathlib import Path
 SCRIPT = Path(__file__).resolve().parent / "run_smoke_inv1_injection.py"
 
 
+# 把實驗腳本當模組載進來,測的是那支腳本裡的同一份工具定義,不是另外抄一份。
 def load_script():
-    """把實驗腳本當模組載進來,測的是那支腳本裡的同一份工具定義,不是另外抄一份。"""
     spec = importlib.util.spec_from_file_location("smoke_inv1", SCRIPT)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)

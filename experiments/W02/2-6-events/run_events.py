@@ -1,20 +1,19 @@
-"""作業 2-6:events 換挑法,根因名稱有沒有進查詢 / prompt,以及檢索命中率@k。不打 agent。
-
-設定出處:W02 §9.2(Calvin 2026-10-13)
-  挑法(retrieval.PICKS):warning5 = 起點;warning_all = Warning 全部放,不設上限;
-  dedup_reason / dedup_kind = 同 reason(或 regarding 的 kind)只留一筆,湊滿 5 筆
-  搜尋設定兩組,同 2-6-agent:A = one/raw 不換 simple;B = each/raw 換 simple 一次合併
-量三件事(每組跑 1 次;搜尋沒有隨機成分,新查詢的向量算一次存進 retrieval.query_vectors):
-  §3 根因名稱在不在查詢 / prompt 裡。名稱 = 答案檔根因組 filter 去掉正規式符號後最長的一段,
-     沒有 filter 就用 name(修掉 W02 §9.2 Scenario-14 的漏算)
-  §4 排除版 hit@5,跟同一組搜尋設定的 warning5 逐題比
-prompt 裡有沒有名稱 = 告警 + 挑出的 events + 搜尋前 10 塊的文字裡有沒有;§2 抽一題跟
-pipeline.build_retrieval_prompt 的全文核對結論相同。
-
-跑法(從 repo 根目錄,DB 要先起來;會打 embedding API 算新查詢的向量):
-    POSTGRES_HOST=localhost uv run python experiments/W02/2-6-events/run_events.py
-INV-13:答案檔只在量尺那一側(§1 名稱、relevance)讀,不進查詢與 prompt。
-"""
+# 作業 2-6:events 換挑法,根因名稱有沒有進查詢 / prompt,以及檢索命中率@k。不打 agent。
+#
+# 設定出處:W02 §9.2(Calvin 2026-10-13)
+#   挑法(retrieval.PICKS):warning5 = 起點;warning_all = Warning 全部放,不設上限;
+#   dedup_reason / dedup_kind = 同 reason(或 regarding 的 kind)只留一筆,湊滿 5 筆
+#   搜尋設定兩組,同 2-6-agent:A = one/raw 不換 simple;B = each/raw 換 simple 一次合併
+# 量三件事(每組跑 1 次;搜尋沒有隨機成分,新查詢的向量算一次存進 retrieval.query_vectors):
+#   §3 根因名稱在不在查詢 / prompt 裡。名稱 = 答案檔根因組 filter 去掉正規式符號後最長的一段,
+#      沒有 filter 就用 name(修掉 W02 §9.2 Scenario-14 的漏算)
+#   §4 排除版 hit@5,跟同一組搜尋設定的 warning5 逐題比
+# prompt 裡有沒有名稱 = 告警 + 挑出的 events + 搜尋前 10 塊的文字裡有沒有;§2 抽一題跟
+# pipeline.build_retrieval_prompt 的全文核對結論相同。
+#
+# 跑法(從 repo 根目錄,DB 要先起來;會打 embedding API 算新查詢的向量):
+#     POSTGRES_HOST=localhost uv run python experiments/W02/2-6-events/run_events.py
+# INV-13:答案檔只在量尺那一側(§1 名稱、relevance)讀,不進查詢與 prompt。
 
 import json
 import re

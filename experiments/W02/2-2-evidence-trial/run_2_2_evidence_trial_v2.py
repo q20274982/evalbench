@@ -1,22 +1,21 @@
-"""作業 2-2 第二輪|第一關放寬成「因果鏈上的實體」,規則禁止場景字面值。
-
-問題:第一輪只比對根因實體的名字,症狀側的證據全被擋掉;規則也含 adFailure、on 這種
-從答案檔照抄的字面值。這輪只改兩件事:
-  1. 第一關 = 因果鏈上所有實體(root_cause 那個 group + propagations 裡的 source/target),
-     各自用 groups 裡的 filter(re.search,任一條比得上);沒有 filter 用 id 子字串(不分大小寫)。
-  2. 規則不准含任何場景字面值(實體名、flag 名、設定鍵名);程式最後會自動檢查。
-
-輸入(純讀檔,不打 API、不跑 embedding、不連資料庫):
-  - 第一輪的 run_2_2_evidence_trial.py(同資料夾 import:SCENARIO/SOURCES/sample_source,
-    語料同抽樣同種子,總塊數必須是 10,895,不等就停)
-  - Scenario-5/ground_truth.yaml(只用來找實體與寫報告,內容只寫進 out/)
-  - out/results.json(第一輪的數字,只用在對照)
-標註(ANNOTATIONS)是人工看過原文後寫死在本檔的,鍵是 (檔名, 行號)。
-
-跑法:
-    uv run python experiments/W02/2-2-evidence-trial/run_2_2_evidence_trial_v2.py
-輸出:out/report_v2.md、out/results_v2.json
-"""
+# 作業 2-2 第二輪|第一關放寬成「因果鏈上的實體」,規則禁止場景字面值。
+#
+# 問題:第一輪只比對根因實體的名字,症狀側的證據全被擋掉;規則也含 adFailure、on 這種
+# 從答案檔照抄的字面值。這輪只改兩件事:
+#   1. 第一關 = 因果鏈上所有實體(root_cause 那個 group + propagations 裡的 source/target),
+#      各自用 groups 裡的 filter(re.search,任一條比得上);沒有 filter 用 id 子字串(不分大小寫)。
+#   2. 規則不准含任何場景字面值(實體名、flag 名、設定鍵名);程式最後會自動檢查。
+#
+# 輸入(純讀檔,不打 API、不跑 embedding、不連資料庫):
+#   - 第一輪的 run_2_2_evidence_trial.py(同資料夾 import:SCENARIO/SOURCES/sample_source,
+#     語料同抽樣同種子,總塊數必須是 10,895,不等就停)
+#   - Scenario-5/ground_truth.yaml(只用來找實體與寫報告,內容只寫進 out/)
+#   - out/results.json(第一輪的數字,只用在對照)
+# 標註(ANNOTATIONS)是人工看過原文後寫死在本檔的,鍵是 (檔名, 行號)。
+#
+# 跑法:
+#     uv run python experiments/W02/2-2-evidence-trial/run_2_2_evidence_trial_v2.py
+# 輸出:out/report_v2.md、out/results_v2.json
 
 # ruff: noqa: E501
 import inspect
@@ -142,8 +141,8 @@ def fired(source: str, text: str) -> list[str]:
     return [n for n, fn in RULES if fn(source, text)]
 
 
+# 從 ground_truth 收集場景字面值:group id / filter / 實體名 / 告警 id / 被改設定的 JSON 鍵名。
 def scenario_literals(content: dict) -> set[str]:
-    """從 ground_truth 收集場景字面值:group id / filter / 實體名 / 告警 id / 被改設定的 JSON 鍵名。"""
     lit: set[str] = set()
     for g in content["groups"]:
         lit.add(g["id"])
@@ -161,8 +160,8 @@ def scenario_literals(content: dict) -> set[str]:
     return {x for x in lit if x}
 
 
+# 整個規則函式原始碼(含 docstring)逐一用「單詞邊界」比對字面值。
 def literal_hits(lits: set[str]) -> list[tuple[str, str]]:
-    """整個規則函式原始碼(含 docstring)逐一用「單詞邊界」比對字面值。"""
     hits = []
     for name, fn in RULES:
         src = inspect.getsource(fn)

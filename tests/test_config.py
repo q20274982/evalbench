@@ -1,11 +1,10 @@
-"""作業 0-4|環境常數讀得進來。
-
-接手 experiments/W00/env-checks/check_api.py 的「.env 缺不缺變數」那一半檢查。
-這支不打 API、不花錢,所以可以留在 pytest 裡每次跑。
-
-跑法:
-    docker compose run --rm app uv run pytest tests/test_config.py -s
-"""
+# 作業 0-4|環境常數讀得進來。
+#
+# 接手 experiments/W00/env-checks/check_api.py 的「.env 缺不缺變數」那一半檢查。
+# 這支不打 API、不花錢,所以可以留在 pytest 裡每次跑。
+#
+# 跑法:
+#     docker compose run --rm app uv run pytest tests/test_config.py -s
 
 from config import settings
 

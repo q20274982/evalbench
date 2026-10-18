@@ -1,27 +1,26 @@
-"""W01 §7.7|一鍵起 demo:快照進 → 切片 → 模型 → 結構化輸出 → 落一張 case + 存 trace。
-
-規格正本是 W01 工作簿 §7.7 與 §7.7.1(Calvin 2026-09-21 定案)。
-
-  ① 起點含容器:`docker compose up -d db` 起 Postgres,再跑這支
-  ② 第 2 段叫「切片」不叫「檢索」——本週就是寫死的切法(src/pipeline.py),W2 才換
-  ④ 固定 Scenario-1;預設跑 1 題,--all 跑 35 題 × 3 輪
-  ⑤ 題內停、題間繼續;呼叫失敗的那一筆仍然落 trace(§7.6.1 ③a)
-
-**成功判準不看分數**(§7.7 ④):五段各自走完沒有、case 有沒有落、trace 檔在不在,
-那些才是成功燈。分數另外印,不進成功判定——挑一題會答對的來當綠燈的話,「管線通」
-與「答對了」就共用一盞燈,變紅時分不出是哪一個壞了。
-
-住 src/ 不住 experiments/ 的理由:這是系統的入口,每週都要跑,不是某一份作業的
-一次性紀錄(/scaffold 慣例 8,2026-09-21)。
-
-跑法:
-    docker compose up -d db
-    docker compose run --rm app uv run python src/demo.py
-    docker compose run --rm app uv run python src/demo.py --all
-
-INV-13:ground_truth.yaml 不進 prompt。切片只讀 alerts/ 與 k8s_events_raw.tsv;
-答案檔只在 §3 評分那一側被讀。
-"""
+# W01 §7.7|一鍵起 demo:快照進 → 切片 → 模型 → 結構化輸出 → 落一張 case + 存 trace。
+#
+# 規格正本是 W01 工作簿 §7.7 與 §7.7.1(Calvin 2026-09-21 定案)。
+#
+#   ① 起點含容器:`docker compose up -d db` 起 Postgres,再跑這支
+#   ② 第 2 段叫「切片」不叫「檢索」——本週就是寫死的切法(src/pipeline.py),W2 才換
+#   ④ 固定 Scenario-1;預設跑 1 題,--all 跑 35 題 × 3 輪
+#   ⑤ 題內停、題間繼續;呼叫失敗的那一筆仍然落 trace(§7.6.1 ③a)
+#
+# **成功判準不看分數**(§7.7 ④):五段各自走完沒有、case 有沒有落、trace 檔在不在,
+# 那些才是成功燈。分數另外印,不進成功判定——挑一題會答對的來當綠燈的話,「管線通」
+# 與「答對了」就共用一盞燈,變紅時分不出是哪一個壞了。
+#
+# 住 src/ 不住 experiments/ 的理由:這是系統的入口,每週都要跑,不是某一份作業的
+# 一次性紀錄(/scaffold 慣例 8,2026-09-21)。
+#
+# 跑法:
+#     docker compose up -d db
+#     docker compose run --rm app uv run python src/demo.py
+#     docker compose run --rm app uv run python src/demo.py --all
+#
+# INV-13:ground_truth.yaml 不進 prompt。切片只讀 alerts/ 與 k8s_events_raw.tsv;
+# 答案檔只在 §3 評分那一側被讀。
 
 import sys
 import time

@@ -1,18 +1,17 @@
-"""作業 2-6 前置:「一塊算不算證據」的兩種算法,各自在 25 題裡標出幾塊。
-
-來源:TA 提議、Calvin 2026-10-11 同意「先兩種都量,看數字再決定」。工作簿沒有指到這一步。
-要決定的事:SPEC §8.2「第一步:取出實體 (kind, name)」沒寫一塊要取哪個實體。
-
-兩種算法(第二步「怎麼比」兩邊相同,照 R01 §11 的官方推導設定):
-  甲 只算發出者:一塊講的實體 = 發出這一塊的東西(POC run_poc.py 的取法,改寫成新切塊的格式)
-  乙 發出者 + 被提到的:甲,再加上「塊的文字裡出現根因 alias 組的名字」。
-     文字裡的名字看不出 kind,所以被提到的這一半不比 kind;但 Namespace 型的 group 不算被提到
-     (SPEC §8.2「namespace: 只算 namespace 物件本身」)。名稱規則無法編譯的 group 也不算被提到。
-
-獨立性:本檔不 import src/(量尺不跟被測系統共用判斷程式)。
-輸入:作業 2-3 輸出 run1.jsonl(調整用 25 題)、各場景 ground_truth.yaml。純讀檔,不打 API、不連 DB。
-跑法:uv run python experiments/W02/2-6-relevance-compare/run_relevance_compare.py
-"""
+# 作業 2-6 前置:「一塊算不算證據」的兩種算法,各自在 25 題裡標出幾塊。
+#
+# 來源:TA 提議、Calvin 2026-10-11 同意「先兩種都量,看數字再決定」。工作簿沒有指到這一步。
+# 要決定的事:SPEC §8.2「第一步:取出實體 (kind, name)」沒寫一塊要取哪個實體。
+#
+# 兩種算法(第二步「怎麼比」兩邊相同,照 R01 §11 的官方推導設定):
+#   甲 只算發出者:一塊講的實體 = 發出這一塊的東西(POC run_poc.py 的取法,改寫成新切塊的格式)
+#   乙 發出者 + 被提到的:甲,再加上「塊的文字裡出現根因 alias 組的名字」。
+#      文字裡的名字看不出 kind,所以被提到的這一半不比 kind;但 Namespace 型的 group 不算被提到
+#      (SPEC §8.2「namespace: 只算 namespace 物件本身」)。名稱規則無法編譯的 group 也不算被提到。
+#
+# 獨立性:本檔不 import src/(量尺不跟被測系統共用判斷程式)。
+# 輸入:作業 2-3 輸出 run1.jsonl(調整用 25 題)、各場景 ground_truth.yaml。純讀檔,不打 API、不連 DB。
+# 跑法:uv run python experiments/W02/2-6-relevance-compare/run_relevance_compare.py
 
 import json
 import re
@@ -41,8 +40,8 @@ def _res_attr(text: str, key: str) -> str | None:
     return m.group(1) if m else None
 
 
+# logs / traces:ServiceName(Service)、k8s.pod.name(Pod)、k8s.deployment.name(Deployment)。
 def emitter_otel(c: dict) -> list[tuple[str, str]]:
-    """logs / traces:ServiceName(Service)、k8s.pod.name(Pod)、k8s.deployment.name(Deployment)。"""
     t, out = c["text"], []
     svc = _line(t, "ServiceName") or _res_attr(t, "service.name")
     for kind, val in (
@@ -55,21 +54,21 @@ def emitter_otel(c: dict) -> list[tuple[str, str]]:
     return out
 
 
+# Event 的主角是被指到的資源(regarding / involvedObject),不是 Event 自己的名字。
 def emitter_events(c: dict) -> list[tuple[str, str]]:
-    """Event 的主角是被指到的資源(regarding / involvedObject),不是 Event 自己的名字。"""
     o = json.loads(c["text"]).get("object", {})
     io = o.get("regarding") or o.get("involvedObject") or {}
     return [(io["kind"], io["name"])] if io.get("kind") and io.get("name") else []
 
 
+# 切塊時的合併依據 key = [kind, namespace, name, resourceVersion, (欄位路徑)]。
 def emitter_objects(c: dict) -> list[tuple[str, str]]:
-    """切塊時的合併依據 key = [kind, namespace, name, resourceVersion, (欄位路徑)]。"""
     k = c["key"]
     return [(k[0], k[2])] if len(k) >= 3 and k[0] and k[2] else []
 
 
+# pod 檔的 pod_name(Pod)、service 檔的 service_name(Service);不取 tags 裡的 pod / service。
 def emitter_metrics(c: dict) -> list[tuple[str, str]]:
-    """pod 檔的 pod_name(Pod)、service 檔的 service_name(Service);不取 tags 裡的 pod / service。"""
     out = []
     for kind, key in (("Pod", "pod_name"), ("Service", "service_name")):
         v = _line(c["text"], key)
@@ -88,8 +87,8 @@ AL_DESC = [
 ]
 
 
+# labels 的 service_name / pod / container 與 description 句型(照 POC);不取 labels.service。
 def emitter_alerts(c: dict) -> list[tuple[str, str]]:
-    """labels 的 service_name / pod / container 與 description 句型(照 POC);不取 labels.service。"""
     t, out = c["text"], []
     for kind, key in (
         ("Service", "labels.service_name"),
@@ -149,8 +148,8 @@ def load_alias_set(scenario: str) -> list[Group]:
     return [g for g in groups if g.id in ids]
 
 
+# 官方推導:filter 原樣 re.match;無 filter 用 name(不分大小寫完全相符);無法編譯只比 kind。
 def entity_test(g: Group):
-    """官方推導:filter 原樣 re.match;無 filter 用 name(不分大小寫完全相符);無法編譯只比 kind。"""
     if g.filters:
         try:
             pats = [re.compile(p) for p in g.filters]
@@ -161,8 +160,8 @@ def entity_test(g: Group):
     return lambda n: n[:500].lower() == key
 
 
+# 乙的「被提到」:文字裡任何位置出現符合名稱規則的字。Namespace 型與無法編譯的 group 不算。
 def mention_test(g: Group):
-    """乙的「被提到」:文字裡任何位置出現符合名稱規則的字。Namespace 型與無法編譯的 group 不算。"""
     if g.kind == "Namespace":
         return None
     if g.filters:

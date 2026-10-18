@@ -1,19 +1,18 @@
-"""作業 2-2|「名稱比對 + 寫死篩選規則」判證據,寫不寫得出來、跟逐塊判斷一致多少。
-
-問題:檢索命中率@k 要定義「一塊資料相關」。候選做法是先要求這塊提到根因實體的名字,
-再用寫死的規則篩出真的是證據的塊。這支只做一個場景(Scenario-5)的小實驗,
-同一個人(Claude)先當標註者、再當寫規則的人;規則只看奇數半的標註,偶數半當保留組。
-
-輸入(純讀檔,不打 API、不跑 embedding、不連資料庫):
-  - Scenario-5 的六種來源,抽樣邏輯複製自 2-1(SCENARIO/SOURCES/PER_SOURCE/SEED),
-    總塊數必須是 10,895,不等就停
-  - Scenario-5/ground_truth.yaml(只用來標註與寫報告,內容只寫進 out/)
-標註(ANNOTATIONS)是人工看過原文後寫死在本檔的,鍵是 (來源, 行號)。
-
-跑法:
-    uv run python experiments/W02/2-2-evidence-trial/run_2_2_evidence_trial.py
-輸出:out/report.md、out/results.json
-"""
+# 作業 2-2|「名稱比對 + 寫死篩選規則」判證據,寫不寫得出來、跟逐塊判斷一致多少。
+#
+# 問題:檢索命中率@k 要定義「一塊資料相關」。候選做法是先要求這塊提到根因實體的名字,
+# 再用寫死的規則篩出真的是證據的塊。這支只做一個場景(Scenario-5)的小實驗,
+# 同一個人(Claude)先當標註者、再當寫規則的人;規則只看奇數半的標註,偶數半當保留組。
+#
+# 輸入(純讀檔,不打 API、不跑 embedding、不連資料庫):
+#   - Scenario-5 的六種來源,抽樣邏輯複製自 2-1(SCENARIO/SOURCES/PER_SOURCE/SEED),
+#     總塊數必須是 10,895,不等就停
+#   - Scenario-5/ground_truth.yaml(只用來標註與寫報告,內容只寫進 out/)
+# 標註(ANNOTATIONS)是人工看過原文後寫死在本檔的,鍵是 (來源, 行號)。
+#
+# 跑法:
+#     uv run python experiments/W02/2-2-evidence-trial/run_2_2_evidence_trial.py
+# 輸出:out/report.md、out/results.json
 
 # ruff: noqa: E501
 import json

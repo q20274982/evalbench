@@ -1,25 +1,24 @@
-"""W01 作業 1-1|一個場景目錄進來之後:六種來源各幾筆、時間範圍、佔多少記憶體。
-
-spec 是 Calvin 定的(2026-09-13 對話),四個決定:
-  ① 不建完整解析層。只量筆數/時間範圍/記憶體,欄位內容不拆。
-     所以 tags 的 Python dict 字串、Body 的巢狀 JSON 一律當不透明字串跳過。
-  ② 行數報「邏輯筆數」,不報物理行。otel_logs 有三成的 Body 欄含換行
-     (資料集導覽 §4.4),wc -l 會多數三成,所以一律走 csv 解析器。
-  ③ 記憶體兩種讀法各量一次:streaming(邊讀邊丟)與 in-memory(整份留著)。
-     量的是行程 RSS 峰值。
-  ④ 時間戳不在載入層轉,下游要比才轉。所以掃描時只留原字串,
-     最小/最大用字典序比——同一來源內日期時間是固定寬度、小數秒是純十進位小數,
-     兩者的字典序都等同數值序(實測 alerts 的小數秒位數不固定,7 位與 9 位並存,
-     但小數的字典序不受位數影響);
-     轉成 datetime 只發生在最後印表那一步。
-
-跑法:
-    docker compose run --rm app uv run python experiments/W01/1-1-inventory/run_1_1_inventory.py
-
-為什麼要開子行程:RSS 峰值是只升不降的高水位。同一個行程裡先量 in-memory
-再量 streaming,streaming 會讀到前一次留下的高點。所以每個 (來源, 讀法) 各開
-一個子行程,量它自己的峰值。
-"""
+# W01 作業 1-1|一個場景目錄進來之後:六種來源各幾筆、時間範圍、佔多少記憶體。
+#
+# spec 是 Calvin 定的(2026-09-13 對話),四個決定:
+#   ① 不建完整解析層。只量筆數/時間範圍/記憶體,欄位內容不拆。
+#      所以 tags 的 Python dict 字串、Body 的巢狀 JSON 一律當不透明字串跳過。
+#   ② 行數報「邏輯筆數」,不報物理行。otel_logs 有三成的 Body 欄含換行
+#      (資料集導覽 §4.4),wc -l 會多數三成,所以一律走 csv 解析器。
+#   ③ 記憶體兩種讀法各量一次:streaming(邊讀邊丟)與 in-memory(整份留著)。
+#      量的是行程 RSS 峰值。
+#   ④ 時間戳不在載入層轉,下游要比才轉。所以掃描時只留原字串,
+#      最小/最大用字典序比——同一來源內日期時間是固定寬度、小數秒是純十進位小數,
+#      兩者的字典序都等同數值序(實測 alerts 的小數秒位數不固定,7 位與 9 位並存,
+#      但小數的字典序不受位數影響);
+#      轉成 datetime 只發生在最後印表那一步。
+#
+# 跑法:
+#     docker compose run --rm app uv run python experiments/W01/1-1-inventory/run_1_1_inventory.py
+#
+# 為什麼要開子行程:RSS 峰值是只升不降的高水位。同一個行程裡先量 in-memory
+# 再量 streaming,streaming 會讀到前一次留下的高點。所以每個 (來源, 讀法) 各開
+# 一個子行程,量它自己的峰值。
 
 import csv
 import json
@@ -91,8 +90,8 @@ def iter_alerts_dir(path: Path, ts_field: str):
 
 
 # §2.4
+# 跟 iter_tsv 同一份檔,但吐整列,不只吐時間戳那一欄(spec ⑤ 用)。
 def iter_tsv_rows(path: Path, ts_field: str):
-    """跟 iter_tsv 同一份檔,但吐整列,不只吐時間戳那一欄(spec ⑤ 用)。"""
     with path.open(newline="", encoding="utf-8", errors="replace") as fh:
         reader = csv.reader(fh, delimiter="\t", quotechar='"')
         header = next(reader, None)
@@ -171,8 +170,8 @@ def run_worker(source: dict, mode: str) -> dict:
 # §4 下游:唯一轉時間戳的地方(spec ④)
 
 # §4.1
+# 把原字串轉成 datetime。轉不動就回 None,不猜、不補時區。
 def parse_ts(raw: str | None) -> datetime | None:
-    """把原字串轉成 datetime。轉不動就回 None,不猜、不補時區。"""
     if not raw:
         return None
     s = raw.strip()

@@ -1,18 +1,17 @@
-"""探針:OpenRouter 鎖 DeepInfra 跑 bge-m3,作業 2-6 整份語料要算多久、花多少。
-
-來源:Calvin 2026-10-09 要求(作業 2-6 的 embedding 要走本機還是 OpenRouter,本機估 6–15 小時,
-OpenRouter 的時間沒有任何紀錄)。不屬於任何作業的本體,量完就沒有用途。
-
-量四件事:
-  §2 每個 token 幾個字元:用 OpenRouter 回傳的 usage 算,取代先前借用的「約 2 字元」
-  §3 一次送一個請求時,短 / 中 / 長三組各自每秒幾個 token
-  §4 同時送 4 個請求,總速度有沒有變快、會不會被擋(429)
-  §5 最長的一塊(16,625 字元)送得過去嗎——bge-m3 上限 8192 token
-最後 §6 用量到的比例與速度,換算 run1.jsonl 全部 145,786 塊的時間與花費。
-
-輸入:experiments/W02/2-3-chunking/out/run1.jsonl(作業 2-3 的輸出,調整用 25 題)。
-跑法:uv run python experiments/W02/openrouter-embed-probe/run_openrouter_embed_probe.py
-"""
+# 探針:OpenRouter 鎖 DeepInfra 跑 bge-m3,作業 2-6 整份語料要算多久、花多少。
+#
+# 來源:Calvin 2026-10-09 要求(作業 2-6 的 embedding 要走本機還是 OpenRouter,本機估 6–15 小時,
+# OpenRouter 的時間沒有任何紀錄)。不屬於任何作業的本體,量完就沒有用途。
+#
+# 量四件事:
+#   §2 每個 token 幾個字元:用 OpenRouter 回傳的 usage 算,取代先前借用的「約 2 字元」
+#   §3 一次送一個請求時,短 / 中 / 長三組各自每秒幾個 token
+#   §4 同時送 4 個請求,總速度有沒有變快、會不會被擋(429)
+#   §5 最長的一塊(16,625 字元)送得過去嗎——bge-m3 上限 8192 token
+# 最後 §6 用量到的比例與速度,換算 run1.jsonl 全部 145,786 塊的時間與花費。
+#
+# 輸入:experiments/W02/2-3-chunking/out/run1.jsonl(作業 2-3 的輸出,調整用 25 題)。
+# 跑法:uv run python experiments/W02/openrouter-embed-probe/run_openrouter_embed_probe.py
 
 import json
 import random

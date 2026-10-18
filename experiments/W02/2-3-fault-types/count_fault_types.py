@@ -1,21 +1,20 @@
-"""作業 2-3|25 個調整用場景的故障類型分布(選來源前的參考)。
-
-問題:Scenario-5 一題代表不了全部。選「收哪幾種來源」之前,先知道調整用的 25 題裡
-注入的故障有哪幾類、各有幾題,才能一類一類問「它的痕跡留在哪幾種來源」。
-
-輸入(純讀檔,不打 API、不連資料庫):
-  - 35 個場景資料夾,先排除 W2 留出不看的 10 題(工作簿 W02 §3,2026-10-04 抽定),
-    排除發生在讀檔之前,留出題的答案檔不會被打開
-  - 剩下 25 題的 ground_truth.yaml 的 `fault` 欄位(資料集導覽 §5.7:每項有 entity /
-    category / condition / fault_mechanism;一題 1–4 項)
-不做的事:
-  - 不把 category 的同義寫法合併(哪些算同義是分類決定,留給 Calvin),原值照印
-  - 不把 fault 當答案(資料集導覽 §5.7:fault 不一定等於 root_cause group)
-
-跑法:
-    uv run python experiments/W02/2-3-fault-types/count_fault_types.py
-輸出:終端表格
-"""
+# 作業 2-3|25 個調整用場景的故障類型分布(選來源前的參考)。
+#
+# 問題:Scenario-5 一題代表不了全部。選「收哪幾種來源」之前,先知道調整用的 25 題裡
+# 注入的故障有哪幾類、各有幾題,才能一類一類問「它的痕跡留在哪幾種來源」。
+#
+# 輸入(純讀檔,不打 API、不連資料庫):
+#   - 35 個場景資料夾,先排除 W2 留出不看的 10 題(工作簿 W02 §3,2026-10-04 抽定),
+#     排除發生在讀檔之前,留出題的答案檔不會被打開
+#   - 剩下 25 題的 ground_truth.yaml 的 `fault` 欄位(資料集導覽 §5.7:每項有 entity /
+#     category / condition / fault_mechanism;一題 1–4 項)
+# 不做的事:
+#   - 不把 category 的同義寫法合併(哪些算同義是分類決定,留給 Calvin),原值照印
+#   - 不把 fault 當答案(資料集導覽 §5.7:fault 不一定等於 root_cause group)
+#
+# 跑法:
+#     uv run python experiments/W02/2-3-fault-types/count_fault_types.py
+# 輸出:終端表格
 
 # ruff: noqa: E501
 import collections

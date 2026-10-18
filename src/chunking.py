@@ -1,18 +1,17 @@
-"""切塊層:把一個場景的六種觀測資料切成要算 embedding 的塊。
-
-規格正本是 Product SPEC `§8.3`(前處理:每種來源切之前丟什麼)與 `§8.4`(每種來源怎麼切,
-含「照著切的補充規則」)。本檔每個判斷分支旁邊的 `§8.x` 註記指到規格裡對應的那一句。
-
-這一層只「切」:不存資料庫、不算 embedding(SPEC §8.4 補充規則「範圍」之外,下一步再做)。
-輸出的每一塊帶四樣東西:
-  - text:塊的文字 = 規格說的「原句」。只放前處理留下的欄位,值一個字都不改
-  - key:合併依據。key 相同的紀錄併成一塊,保留第一次出現的那一筆
-  - count / first_seen / last_seen:合併後的附帶欄位,不進 text(§8.4「合併後的附帶資訊」)
-  - namespace:附帶欄位,不進 text(§8.3 namespace 那條)
-
-「第一次出現」= 先照時間排序,時間相同再照檔案裡的列順序(§8.4)。Python 的 sort 是穩定排序,
-所以先按讀檔順序收進 list、再只用時間當排序鍵,同時間的列自然維持檔案順序。
-"""
+# 切塊層:把一個場景的六種觀測資料切成要算 embedding 的塊。
+#
+# 規格正本是 Product SPEC `§8.3`(前處理:每種來源切之前丟什麼)與 `§8.4`(每種來源怎麼切,
+# 含「照著切的補充規則」)。本檔每個判斷分支旁邊的 `§8.x` 註記指到規格裡對應的那一句。
+#
+# 這一層只「切」:不存資料庫、不算 embedding(SPEC §8.4 補充規則「範圍」之外,下一步再做)。
+# 輸出的每一塊帶四樣東西:
+#   - text:塊的文字 = 規格說的「原句」。只放前處理留下的欄位,值一個字都不改
+#   - key:合併依據。key 相同的紀錄併成一塊,保留第一次出現的那一筆
+#   - count / first_seen / last_seen:合併後的附帶欄位,不進 text(§8.4「合併後的附帶資訊」)
+#   - namespace:附帶欄位,不進 text(§8.3 namespace 那條)
+#
+# 「第一次出現」= 先照時間排序,時間相同再照檔案裡的列順序(§8.4)。Python 的 sort 是穩定排序,
+# 所以先按讀檔順序收進 list、再只用時間當排序鍵,同時間的列自然維持檔案順序。
 
 import ast
 import csv
@@ -41,12 +40,11 @@ class Chunk:
     extra: dict = field(default_factory=dict)
 
 
+# 把兩種時間寫法統一成可直接比大小的字串:YYYY-MM-DDTHH:MM:SS.nnnnnnnnn。
+#
+# 資料裡有 `2025-12-15 17:17:22.019415781`(traces / logs / objects)與
+# `2025-12-14T18:14:29Z`(events)。小數位數不固定,補到 9 位才能逐字比大小。
 def norm_time(s: str) -> str:
-    """把兩種時間寫法統一成可直接比大小的字串:YYYY-MM-DDTHH:MM:SS.nnnnnnnnn。
-
-    資料裡有 `2025-12-15 17:17:22.019415781`(traces / logs / objects)與
-    `2025-12-14T18:14:29Z`(events)。小數位數不固定,補到 9 位才能逐字比大小。
-    """
     s = s.replace(" ", "T").rstrip("Z")
     base, _, frac = s.partition(".")
     return f"{base}.{frac.ljust(9, '0')}"
@@ -59,9 +57,9 @@ _Q = r"'(?:[^'\\]|\\.)*'|\"(?:[^\"\\]|\\.)*\""
 _PAIR = re.compile(rf"({_Q}): ({_Q})")
 
 
+# 回傳 (key, value, 原始字面) 的序列。切不回原字串就報錯,不靜默吞掉格式意外。
 @lru_cache(maxsize=200_000)
 def dict_pairs(raw: str) -> tuple[tuple[str, str, str], ...]:
-    """回傳 (key, value, 原始字面) 的序列。切不回原字串就報錯,不靜默吞掉格式意外。"""
     if raw in ("", "{}"):
         return ()
     pairs = [(m.group(0), m.group(1), m.group(2)) for m in _PAIR.finditer(raw)]
@@ -70,8 +68,8 @@ def dict_pairs(raw: str) -> tuple[tuple[str, str, str], ...]:
     return tuple((ast.literal_eval(k), ast.literal_eval(v), lit) for lit, k, v in pairs)
 
 
+# 只留 keep(key) 為真的那幾對,原始字面與順序不動。
 def dict_subset(raw: str, keep) -> str:
-    """只留 keep(key) 為真的那幾對,原始字面與順序不動。"""
     if raw == "":
         return raw
     return "{" + ", ".join(lit for k, _, lit in dict_pairs(raw) if keep(k)) + "}"
@@ -84,16 +82,15 @@ def dict_get(raw: str, key: str) -> str:
     return ""
 
 
+# 一欄一行寫成 `欄位名: 值`,欄位順序照 cols(§8.4 補充規則「塊的文字」)。
 def lines(cols: list[str], row: dict[str, str]) -> str:
-    """一欄一行寫成 `欄位名: 值`,欄位順序照 cols(§8.4 補充規則「塊的文字」)。"""
     return "\n".join(f"{c}: {row[c]}" for c in cols)
 
 
+# items = [(時間, key, text, namespace)],已照檔案順序排好。
+#
+# 照時間穩定排序後,key 相同的併成一塊,保留第一筆的 text,記次數與首末時間。
 def merge(source: str, items: list[tuple[str, tuple, str, str]]) -> list[Chunk]:
-    """items = [(時間, key, text, namespace)],已照檔案順序排好。
-
-    照時間穩定排序後,key 相同的併成一塊,保留第一筆的 text,記次數與首末時間。
-    """
     items.sort(key=lambda x: x[0])
     out: dict[tuple, Chunk] = {}
     for t, key, text, ns in items:
@@ -236,8 +233,8 @@ LOG_MASKS = [
 ]
 
 
+# 回傳 (遮罩後的 Body, 依序抽出的 HTTP 狀態碼)。只用來分組,不進 text。
 def mask_log(body: str) -> tuple[str, tuple[str, ...]]:
-    """回傳 (遮罩後的 Body, 依序抽出的 HTTP 狀態碼)。只用來分組,不進 text。"""
     codes = tuple(m.group(2) for m in LOG_STATUS.finditer(body))
     for rx, tag in LOG_MASKS:
         body = rx.sub(tag, body)
@@ -277,8 +274,8 @@ _STATE = re.compile(
 )
 
 
+# §8.4 補充規則:兩種檔名都當 UTC。
 def snapshot_time(name: str) -> str:
-    """§8.4 補充規則:兩種檔名都當 UTC。"""
     m = _AT.fullmatch(name) or _STATE.fullmatch(name)
     if not m:
         raise ValueError(f"告警快照檔名格式沒見過:{name}")
@@ -286,8 +283,8 @@ def snapshot_time(name: str) -> str:
     return norm_time(f"{d}T{hh}:{mm}:{ss}.{frac}")
 
 
+# 欄位名用路徑,順序照原檔的鍵順序(§8.4 補充規則「塊的文字」)。
 def alert_text(a: dict) -> str:
-    """欄位名用路徑,順序照原檔的鍵順序(§8.4 補充規則「塊的文字」)。"""
     out = []
     for k, v in a.items():
         if k == "labels":
@@ -369,8 +366,8 @@ def dumps(o) -> str:
     return json.dumps(o, ensure_ascii=False, separators=(",", ":"))
 
 
+# 把 dumps 的輸出轉回 Go 的跳脫寫法,只用來檢查「除了這幾個字元,重新序列化沒動到別的」。
 def go_escape(s: str) -> str:
-    """把 dumps 的輸出轉回 Go 的跳脫寫法,只用來檢查「除了這幾個字元,重新序列化沒動到別的」。"""
     for ch, esc in (
         ("<", "\\u003c"),
         (">", "\\u003e"),
@@ -382,8 +379,8 @@ def go_escape(s: str) -> str:
     return s
 
 
+# 按長度切開、相鄰重疊。
 def windows(s: str) -> list[str]:
-    """按長度切開、相鄰重疊。"""
     if len(s) <= OBJ_LIMIT:
         return [s]
     out, i, step = [], 0, OBJ_LIMIT - OBJ_OVERLAP
@@ -394,8 +391,8 @@ def windows(s: str) -> list[str]:
         i += step
 
 
+# 超長的版本 → [(欄位路徑, 段的內容)]。§8.4 objects + 補充規則「objects 按長度切」。
 def split_object(o: dict) -> list[tuple[str, str]]:
-    """超長的版本 → [(欄位路徑, 段的內容)]。§8.4 objects + 補充規則「objects 按長度切」。"""
     scalar = [k for k, v in o.items() if not isinstance(v, dict | list)]
     segs: list[tuple[str, str]] = []
     for k, v in o.items():
@@ -416,12 +413,11 @@ def split_object(o: dict) -> list[tuple[str, str]]:
     return out
 
 
+# 回傳 (塊, 統計)。
+#
+# 統計:列數、版本數、超長版本數;reserialize_escape_only = 重新序列化後只差在 < > & 寫法的列數,
+# reserialize_other = 連轉回 Go 跳脫寫法都還對不上原字串的列數(應為 0,不是 0 代表動到了值)。
 def chunk_objects(scn: Path) -> tuple[list[Chunk], dict]:
-    """回傳 (塊, 統計)。
-
-    統計:列數、版本數、超長版本數;reserialize_escape_only = 重新序列化後只差在 < > & 寫法的列數,
-    reserialize_other = 連轉回 Go 跳脫寫法都還對不上原字串的列數(應為 0,不是 0 代表動到了值)。
-    """
     items = []
     stats = {"rows": 0, "reserialize_escape_only": 0, "reserialize_other": 0}
     for r in read_tsv(scn / "k8s_objects_raw.tsv"):

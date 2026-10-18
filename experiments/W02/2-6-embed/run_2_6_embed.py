@@ -1,12 +1,11 @@
-"""作業 2-6 第一步:把作業 2-3 切好的塊算成向量,存進 retrieval.chunks。一次跑一種來源。
-
-Calvin 2026-10-09 的做法:先跑一種來源,看同時 16 個請求的速度與花費在不在預期內,
-都沒問題再跑其他來源。預期值用 W02 探針量到的數字換算(§1),超過停止門檻就停下回報。
-
-跑法(從 repo 根目錄,DB 要先起來):
-    POSTGRES_HOST=localhost uv run python experiments/W02/2-6-embed/run_2_6_embed.py events
-可中斷:已存且原文沒變的塊不重送,重跑從斷點接著算。
-"""
+# 作業 2-6 第一步:把作業 2-3 切好的塊算成向量,存進 retrieval.chunks。一次跑一種來源。
+#
+# Calvin 2026-10-09 的做法:先跑一種來源,看同時 16 個請求的速度與花費在不在預期內,
+# 都沒問題再跑其他來源。預期值用 W02 探針量到的數字換算(§1),超過停止門檻就停下回報。
+#
+# 跑法(從 repo 根目錄,DB 要先起來):
+#     POSTGRES_HOST=localhost uv run python experiments/W02/2-6-embed/run_2_6_embed.py events
+# 可中斷:已存且原文沒變的塊不重送,重跑從斷點接著算。
 
 import json
 import sys

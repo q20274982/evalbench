@@ -1,12 +1,11 @@
-"""探針續:同時送 8 / 16 / 32 個請求,看哪一級開始被擋(429)或總速度不再增加。
-
-來源:Calvin 2026-10-09 要求。OpenRouter 官方 limits 頁只寫付費模型「has no platform-level
-request cap」,沒有數字;DeepInfra 那側有沒有上限只能實測。
-
-每一級送「同時幾個」個請求,每個請求 32 段中組(800–6,000 字元)的塊,只跑一次。
-換算整份語料用 run_openrouter_embed_probe.py 量到的 7,280 萬 token(out/result.json)。
-跑法:uv run python experiments/W02/openrouter-embed-probe/concurrency_sweep.py [8,16,32]
-"""
+# 探針續:同時送 8 / 16 / 32 個請求,看哪一級開始被擋(429)或總速度不再增加。
+#
+# 來源:Calvin 2026-10-09 要求。OpenRouter 官方 limits 頁只寫付費模型「has no platform-level
+# request cap」,沒有數字;DeepInfra 那側有沒有上限只能實測。
+#
+# 每一級送「同時幾個」個請求,每個請求 32 段中組(800–6,000 字元)的塊,只跑一次。
+# 換算整份語料用 run_openrouter_embed_probe.py 量到的 7,280 萬 token(out/result.json)。
+# 跑法:uv run python experiments/W02/openrouter-embed-probe/concurrency_sweep.py [8,16,32]
 
 import json
 import random

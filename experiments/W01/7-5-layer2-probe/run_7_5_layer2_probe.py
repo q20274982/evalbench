@@ -68,12 +68,11 @@ PROMPT_TEMPLATE = """你是值班的 SRE。下面是一個微服務系統在事�
 
 
 # §2 造輸入切片
+# 把 Jaeger JSON 的 span 整包攤成文字行,照時間排序,不截頭。
+#
+# 一行的內容:時間、服務名、操作名、耗時、以及有值的話帶上狀態與錯誤旗標。
+# 不做欄位對齊,不轉 TSV(SPEC 第 12 章已定)。
 def build_slice(drop_flagd: bool) -> str:
-    """把 Jaeger JSON 的 span 整包攤成文字行,照時間排序,不截頭。
-
-    一行的內容:時間、服務名、操作名、耗時、以及有值的話帶上狀態與錯誤旗標。
-    不做欄位對齊,不轉 TSV(SPEC 第 12 章已定)。
-    """
     traces = json.loads(SNAPSHOT.read_text(encoding="utf-8"))["data"]
     rows = []
     for tr in traces:
@@ -127,14 +126,13 @@ def call_model(prompt: str) -> tuple[str, dict]:
 
 
 # §4 判是非(不套評分層,§7.5 只要一個是非答案)
+# 答對的定義:答的名字就是被注入旗標打的那個服務。
+#
+# 比對基準是 EXPECTED_ENTITY 這個場景常數(W0 開的旗標是 adFailure),
+# 不是模型自己的輸出,也不是系統算出來的任何東西。
+# 比法放寬到「名字裡含 ad 這個詞」,因為 demo 的服務名在不同地方寫成
+# ad / adservice / ad-service(資料集導覽 §4.8 記過同型的事)。
 def verdict(entity: str | None) -> bool:
-    """答對的定義:答的名字就是被注入旗標打的那個服務。
-
-    比對基準是 EXPECTED_ENTITY 這個場景常數(W0 開的旗標是 adFailure),
-    不是模型自己的輸出,也不是系統算出來的任何東西。
-    比法放寬到「名字裡含 ad 這個詞」,因為 demo 的服務名在不同地方寫成
-    ad / adservice / ad-service(資料集導覽 §4.8 記過同型的事)。
-    """
     if not entity:
         return False
     norm = entity.lower().replace("_", "-")

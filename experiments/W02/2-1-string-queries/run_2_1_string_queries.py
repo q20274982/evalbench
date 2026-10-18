@@ -1,25 +1,24 @@
-"""作業 2-1|四個字串丟進純向量搜尋,各查回什麼(W02 工作簿 §14.1)。
-
-預測在工作簿 §4.1、§4.5,查之前就寫好了;這支只負責「實際查回的前幾名」那一欄。
-
-語料照 §14.1 定案(Calvin 2026-09-24;「一行」的讀法 TA 2026-09-25 補):
-  - Scenario-5,六種來源各隨機抽 2000 行(不足全收,固定種子 SEED)
-  - 一行 = 檔案的實體行,一行一塊,不做前處理(只去掉行尾換行字元)
-  - alerts 44 個 JSON 檔、metrics 36 個 TSV 檔各自併成一種來源再抽
-  - 超過 8192 token 的行先截短:server 回 400 並告知 token 數,按比例砍字元重送
-  - ground_truth.yaml 不放
-embedding:M1 Pro 本機 bge-m3(settings.embedding_base_url),一次送至多 128 段、
-按長度排序分組(手冊 Ops/m1pro-embedding-server.md §10:長短混批會掉速)。
-向量存自己的 schema `w02_2_1`,不借別人的表。搜尋用 `<=>`(cosine 距離)全表掃,
-不建索引——近似索引會多一個變數。
-
-可以重跑:已算過向量的行會跳過,只補沒算完的,再重查四個字串。
-
-跑法(M1 Pro 的 start.sh 要先開):
-    docker compose run --rm app uv run python \\
-        experiments/W02/2-1-string-queries/run_2_1_string_queries.py
-輸出:終端印每個字串的前 5 名(每塊印前 300 字元);全文寫進同包 out/results.json。
-"""
+# 作業 2-1|四個字串丟進純向量搜尋,各查回什麼(W02 工作簿 §14.1)。
+#
+# 預測在工作簿 §4.1、§4.5,查之前就寫好了;這支只負責「實際查回的前幾名」那一欄。
+#
+# 語料照 §14.1 定案(Calvin 2026-09-24;「一行」的讀法 TA 2026-09-25 補):
+#   - Scenario-5,六種來源各隨機抽 2000 行(不足全收,固定種子 SEED)
+#   - 一行 = 檔案的實體行,一行一塊,不做前處理(只去掉行尾換行字元)
+#   - alerts 44 個 JSON 檔、metrics 36 個 TSV 檔各自併成一種來源再抽
+#   - 超過 8192 token 的行先截短:server 回 400 並告知 token 數,按比例砍字元重送
+#   - ground_truth.yaml 不放
+# embedding:M1 Pro 本機 bge-m3(settings.embedding_base_url),一次送至多 128 段、
+# 按長度排序分組(手冊 Ops/m1pro-embedding-server.md §10:長短混批會掉速)。
+# 向量存自己的 schema `w02_2_1`,不借別人的表。搜尋用 `<=>`(cosine 距離)全表掃,
+# 不建索引——近似索引會多一個變數。
+#
+# 可以重跑:已算過向量的行會跳過,只補沒算完的,再重查四個字串。
+#
+# 跑法(M1 Pro 的 start.sh 要先開):
+#     docker compose run --rm app uv run python \\
+#         experiments/W02/2-1-string-queries/run_2_1_string_queries.py
+# 輸出:終端印每個字串的前 5 名(每塊印前 300 字元);全文寫進同包 out/results.json。
 
 import json
 import random
@@ -87,8 +86,8 @@ def sample_source(files: list[str]) -> list[tuple[str, int, str]]:
 TOO_LONG = re.compile(r"input\[(\d+)\] has (\d+) tokens")
 
 
+# 回傳 (向量, token 數, 被截短的 {批內位置: 截短後文字})。
 def embed(texts: list[str]) -> tuple[list[list[float]], int, dict[int, str]]:
-    """回傳 (向量, token 數, 被截短的 {批內位置: 截短後文字})。"""
     texts, truncated = list(texts), {}
     while True:
         body = json.dumps({"model": settings.embedding_model, "input": texts}).encode()

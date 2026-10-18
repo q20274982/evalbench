@@ -1,29 +1,28 @@
-"""W01 作業 1-2|prompt 寫得再清楚,下游解析得動幾題?
-
-⚠️ 2026-09-20 起 Diagnosis 多了必填的 root_cause_entity(§7.3.1 ①),手造樣本
-已補上這個欄位,好讓每一筆仍然只示範一種缺陷。live 模式的 PROMPT_TEMPLATE
-維持三欄不動——§7.2.1 那批 90%–95% 是三欄時期量的,改了 prompt 就不是同一次
-量測。要量四欄 schema 的服從率,看 run_1_3_baseline.py。
-
-20 個場景各問一題,連跑 3 輪,記錄每一題在解析鏈上死在哪一層。
-
-⚠️ 這支腳本**只觀察,不做策略**。解析失敗時它不丟例外、不填預設值、不重試,
-只把每一層看到什麼記下來。少欄位 / 型別不對 / 多包圍欄各自該在哪一層爆掉,
-是 Calvin 看完這批真實壞輸出之後才做的決定(工作簿 §7.2),
-腳本先替他選了,那個決定就不是他的了。
-
-兩個模式:
-  live      — 打 API 跑 20 題 × 3 輪,產出成敗表。要花錢。
-  malformed — 不打 API。三個手造的壞輸出走同一條解析鏈,看各層分別報什麼。
-              「模型這次剛好都吐對」的時候,三個決定仍然有材料可做。
-
-跑法:
-    docker compose run --rm app uv run python experiments/W01/1-2-structured-output/run_1_2_structured_output.py malformed
-    docker compose run --rm app uv run python experiments/W01/1-2-structured-output/run_1_2_structured_output.py live
-
-INV-13:ground_truth.yaml 不進 prompt。§3 只讀 alerts/ 與 k8s_events_raw.tsv,
-不碰場景目錄下的答案檔。
-"""
+# W01 作業 1-2|prompt 寫得再清楚,下游解析得動幾題?
+#
+# ⚠️ 2026-09-20 起 Diagnosis 多了必填的 root_cause_entity(§7.3.1 ①),手造樣本
+# 已補上這個欄位,好讓每一筆仍然只示範一種缺陷。live 模式的 PROMPT_TEMPLATE
+# 維持三欄不動——§7.2.1 那批 90%–95% 是三欄時期量的,改了 prompt 就不是同一次
+# 量測。要量四欄 schema 的服從率,看 run_1_3_baseline.py。
+#
+# 20 個場景各問一題,連跑 3 輪,記錄每一題在解析鏈上死在哪一層。
+#
+# ⚠️ 這支腳本**只觀察,不做策略**。解析失敗時它不丟例外、不填預設值、不重試,
+# 只把每一層看到什麼記下來。少欄位 / 型別不對 / 多包圍欄各自該在哪一層爆掉,
+# 是 Calvin 看完這批真實壞輸出之後才做的決定(工作簿 §7.2),
+# 腳本先替他選了,那個決定就不是他的了。
+#
+# 兩個模式:
+#   live      — 打 API 跑 20 題 × 3 輪,產出成敗表。要花錢。
+#   malformed — 不打 API。三個手造的壞輸出走同一條解析鏈,看各層分別報什麼。
+#               「模型這次剛好都吐對」的時候,三個決定仍然有材料可做。
+#
+# 跑法:
+#     docker compose run --rm app uv run python experiments/W01/1-2-structured-output/run_1_2_structured_output.py malformed
+#     docker compose run --rm app uv run python experiments/W01/1-2-structured-output/run_1_2_structured_output.py live
+#
+# INV-13:ground_truth.yaml 不進 prompt。§3 只讀 alerts/ 與 k8s_events_raw.tsv,
+# 不碰場景目錄下的答案檔。
 
 import csv
 import json
@@ -74,15 +73,15 @@ PROMPT_TEMPLATE = """你是值班的 SRE。下面是一個 Kubernetes 叢集在�
 
 
 # §2 挑場景
+# 取前 N 個場景,照名稱排序固定住,換一台機器跑到的是同一批。
 def pick_scenarios():
-    """取前 N 個場景,照名稱排序固定住,換一台機器跑到的是同一批。"""
     names = sorted(p.name for p in DATASET_ROOT.iterdir() if p.is_dir())
     return names[:N_SCENARIOS]
 
 
 # §3 造輸入切片(不碰 ground_truth.yaml)
+# 回傳 (告警文字, events 文字)。刻意不整理格式——真實輸入本來就髒。
 def build_slice(scenario: str) -> tuple[str, str]:
-    """回傳 (告警文字, events 文字)。刻意不整理格式——真實輸入本來就髒。"""
     root = DATASET_ROOT / scenario
 
     # §3.1 告警:取時間最後的那份快照,只留 firing 的
@@ -220,12 +219,11 @@ def run_live() -> int:
     return 0
 
 
+# 落檔用:解析層回傳的 Diagnosis 物件換成 dict,其餘原樣。
+#
+# 物件本身是給評測層用的(規格 §7.2.2 ②),json 存不進去,所以只在寫檔這一步
+# 攤平。攤平的是同一筆資料,沒有補值也沒有丟欄位。
 def json_safe(rec: dict) -> dict:
-    """落檔用:解析層回傳的 Diagnosis 物件換成 dict,其餘原樣。
-
-    物件本身是給評測層用的(規格 §7.2.2 ②),json 存不進去,所以只在寫檔這一步
-    攤平。攤平的是同一筆資料,沒有補值也沒有丟欄位。
-    """
     out = dict(rec)
     diag = out.get("diagnosis")
     out["diagnosis"] = diag.model_dump() if diag is not None else None

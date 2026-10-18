@@ -1,27 +1,26 @@
-"""作業 2-3|traces 還沒決定去留的 12 欄:各空幾成、有沒有根因名字只出現在這一欄。
-
-問題:traces 前處理已決定留 10 欄(TraceId / SpanId / ParentSpanId / ServiceName / Timestamp / Duration /
-StatusCode / StatusMessage / SpanAttributes / ResourceAttributes 的 k8s.* 與 service.*)。
-剩下 12 欄要丟之前,先用機器篩:全空、或根因名字從不只出現在這一欄的,名字層面有證據可丟;
-其餘留給 Calvin 判斷。
-
-輸入(純讀檔,不打 API、不連資料庫):
-  - 25 題調整用場景(排除留出 10 題,同 count_fault_types.py)
-  - 根因與故障實體的名稱規則,取法同 check_dropped_resource_keys.py
-  - 每題 otel_traces_raw.tsv 的每個 span
-算法:
-  - 「空」= 值是 ''、'[]'、'{}',或陣列欄的元素全是空(例:Links.TraceState 的 [''])
-  - 「只在這一欄」= 這一欄的原字串比對到名稱規則,而留下的 10 欄(ResourceAttributes 只取 k8s.* / service.*)都比對不到
-不做的事:
-  - 只檢查名字,不檢查「錯成什麼樣」的證據(例:stacktrace)會不會丟,那要 Calvin 判斷
-  - S38 的名稱規則 `*.*` 比對到一切,它對「只在這一欄」永遠是 0,看不出東西
-  - 名稱規則用 re.search 在整個字串裡找,比 SPEC §8.2「從開頭比對、kind 也要對得上」寬,所以只會多報不會漏報;
-    2026-10-08 跑出的 S33 Events.Attributes 2 筆是 UUID 裡恰好有 `ad-`(例 `80ad-46f6`)的誤報
-
-跑法:
-    uv run python experiments/W02/2-3-fault-types/check_dropped_span_columns.py
-輸出:每欄一行:25 題合計空值比例、「只在這一欄」的 span 數與出現在哪幾題
-"""
+# 作業 2-3|traces 還沒決定去留的 12 欄:各空幾成、有沒有根因名字只出現在這一欄。
+#
+# 問題:traces 前處理已決定留 10 欄(TraceId / SpanId / ParentSpanId / ServiceName / Timestamp / Duration /
+# StatusCode / StatusMessage / SpanAttributes / ResourceAttributes 的 k8s.* 與 service.*)。
+# 剩下 12 欄要丟之前,先用機器篩:全空、或根因名字從不只出現在這一欄的,名字層面有證據可丟;
+# 其餘留給 Calvin 判斷。
+#
+# 輸入(純讀檔,不打 API、不連資料庫):
+#   - 25 題調整用場景(排除留出 10 題,同 count_fault_types.py)
+#   - 根因與故障實體的名稱規則,取法同 check_dropped_resource_keys.py
+#   - 每題 otel_traces_raw.tsv 的每個 span
+# 算法:
+#   - 「空」= 值是 ''、'[]'、'{}',或陣列欄的元素全是空(例:Links.TraceState 的 [''])
+#   - 「只在這一欄」= 這一欄的原字串比對到名稱規則,而留下的 10 欄(ResourceAttributes 只取 k8s.* / service.*)都比對不到
+# 不做的事:
+#   - 只檢查名字,不檢查「錯成什麼樣」的證據(例:stacktrace)會不會丟,那要 Calvin 判斷
+#   - S38 的名稱規則 `*.*` 比對到一切,它對「只在這一欄」永遠是 0,看不出東西
+#   - 名稱規則用 re.search 在整個字串裡找,比 SPEC §8.2「從開頭比對、kind 也要對得上」寬,所以只會多報不會漏報;
+#     2026-10-08 跑出的 S33 Events.Attributes 2 筆是 UUID 裡恰好有 `ad-`(例 `80ad-46f6`)的誤報
+#
+# 跑法:
+#     uv run python experiments/W02/2-3-fault-types/check_dropped_span_columns.py
+# 輸出:每欄一行:25 題合計空值比例、「只在這一欄」的 span 數與出現在哪幾題
 
 # ruff: noqa: E501
 import ast

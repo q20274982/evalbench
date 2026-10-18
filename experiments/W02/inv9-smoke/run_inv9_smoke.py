@@ -1,20 +1,19 @@
-"""W02 環境前置|INV-9 smoke test:模型會不會寫出觀測資料裡沒出現過的實體名稱。
-
-只讀 W1 基準線的 trace(traces/20260921T115647Z-6ce5d6/,102 份),不打 API、不花錢。
-Calvin 2026-09-26 同意這個做法(W02 工作簿 §3)。
-
-逐份檢查:模型回答的 root_cause_entity,有沒有**逐字**(大小寫也要一樣的子字串)
-出現在同一份 prompt 的觀測段落裡。
-  - 觀測段落 = prompt 從第一個 "=== " 標題起到結尾;前面的指示文字不算,
-    因為 INV-9 要的是「出現在原文」,不是出現在 TA 寫的 prompt 模板。
-  - 回應解析不出 root_cause_entity 的,另外計數,不算進對得上 / 對不上。
-  - 「不分大小寫才對得上」那一欄只是幫忙分類對不上的原因,不改變判定。
-
-驗收:對不上 ≥ 1 份 = 災難打得出來,不用走 §3 的替代路徑。
-
-跑法:
-    docker compose run --rm app uv run python experiments/W02/inv9-smoke/run_inv9_smoke.py
-"""
+# W02 環境前置|INV-9 smoke test:模型會不會寫出觀測資料裡沒出現過的實體名稱。
+#
+# 只讀 W1 基準線的 trace(traces/20260921T115647Z-6ce5d6/,102 份),不打 API、不花錢。
+# Calvin 2026-09-26 同意這個做法(W02 工作簿 §3)。
+#
+# 逐份檢查:模型回答的 root_cause_entity,有沒有**逐字**(大小寫也要一樣的子字串)
+# 出現在同一份 prompt 的觀測段落裡。
+#   - 觀測段落 = prompt 從第一個 "=== " 標題起到結尾;前面的指示文字不算,
+#     因為 INV-9 要的是「出現在原文」,不是出現在 TA 寫的 prompt 模板。
+#   - 回應解析不出 root_cause_entity 的,另外計數,不算進對得上 / 對不上。
+#   - 「不分大小寫才對得上」那一欄只是幫忙分類對不上的原因,不改變判定。
+#
+# 驗收:對不上 ≥ 1 份 = 災難打得出來,不用走 §3 的替代路徑。
+#
+# 跑法:
+#     docker compose run --rm app uv run python experiments/W02/inv9-smoke/run_inv9_smoke.py
 
 import json
 import sys

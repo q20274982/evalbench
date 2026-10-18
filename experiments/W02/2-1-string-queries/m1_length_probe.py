@@ -1,10 +1,9 @@
-"""在 M1 上跑,不在 Air 的容器裡跑(要 server 的 .venv 與 FlagEmbedding);檔案 scp 到 ~/bge-m3-server/ 執行。
-M1 段長 vs 速度(手冊 §13.2):不經 HTTP,每次 encode 後清快取,段長 256/512/1024/2048/4096/8000 各 3 次。
-
-分批照作業 2-1:一次至多 128 段且至多 30 萬字元;每次約 12.8 萬 token。
-k8s_objects 文字每 token 約 2.562 字元(手冊 §13 校準)。
-跑法:cd ~/bge-m3-server && PYTORCH_ENABLE_MPS_FALLBACK=1 .venv/bin/python length_probe.py
-"""
+# 在 M1 上跑,不在 Air 的容器裡跑(要 server 的 .venv 與 FlagEmbedding);檔案 scp 到 ~/bge-m3-server/ 執行。
+# M1 段長 vs 速度(手冊 §13.2):不經 HTTP,每次 encode 後清快取,段長 256/512/1024/2048/4096/8000 各 3 次。
+#
+# 分批照作業 2-1:一次至多 128 段且至多 30 萬字元;每次約 12.8 萬 token。
+# k8s_objects 文字每 token 約 2.562 字元(手冊 §13 校準)。
+# 跑法:cd ~/bge-m3-server && PYTORCH_ENABLE_MPS_FALLBACK=1 .venv/bin/python length_probe.py
 import json, os, time
 import torch
 from FlagEmbedding import BGEM3FlagModel

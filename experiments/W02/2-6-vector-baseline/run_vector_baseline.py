@@ -1,14 +1,13 @@
-"""作業 2-6:改動前的起點——只用向量搜尋的檢索命中率@k,查詢 2 × 2 種組法各跑 1 次。
-
-組法(Calvin 2026-10-11):
-  combine     one = 告警與 events 壓成一個查詢;each = 一筆一個查詢再用 RRF 合併(R01 §12)
-  events_mode raw = events 用塊的原文;fields = 只取 reason、note、regarding 的 kind 與 name
-被測系統在 src/retrieval.py,量尺在 src/relevance.py,兩邊不共用判斷程式。
-
-跑法(從 repo 根目錄,DB 要先起來):
-    POSTGRES_HOST=localhost uv run python experiments/W02/2-6-vector-baseline/run_vector_baseline.py
-每個設定跑 1 次:語料向量已固定在 DB、查詢向量算一次就存、全表精確排序加塊 id 當次要鍵,重跑結果相同。
-"""
+# 作業 2-6:改動前的起點——只用向量搜尋的檢索命中率@k,查詢 2 × 2 種組法各跑 1 次。
+#
+# 組法(Calvin 2026-10-11):
+#   combine     one = 告警與 events 壓成一個查詢;each = 一筆一個查詢再用 RRF 合併(R01 §12)
+#   events_mode raw = events 用塊的原文;fields = 只取 reason、note、regarding 的 kind 與 name
+# 被測系統在 src/retrieval.py,量尺在 src/relevance.py,兩邊不共用判斷程式。
+#
+# 跑法(從 repo 根目錄,DB 要先起來):
+#     POSTGRES_HOST=localhost uv run python experiments/W02/2-6-vector-baseline/run_vector_baseline.py
+# 每個設定跑 1 次:語料向量已固定在 DB、查詢向量算一次就存、全表精確排序加塊 id 當次要鍵,重跑結果相同。
 
 import json
 import sys

@@ -1,18 +1,17 @@
-"""資料集導覽 §10.4|第二層(OTel demo)另外三種來源與切塊的實測(2026-09-24)。
-
-來源:Calvin 2026-09-24 委託 TA 做,不屬於任何一週的作業。目的是 W3 之前先知道
-第二層的格式會不會卡住切塊。結論與數字寫在 [[EvalBench 資料集導覽]] §10.4。
-
-POC(TA 決定的切法,不是 Calvin 作業 2-3 的切法):一筆記錄一塊,log 一行一塊、
-trace 一個 TraceId 一塊。只問一件事:同一支切塊函式,兩層資料各要多寫多少轉接才吃得下。
-
-輸入:第一層 = 命令列給的場景資料夾;第二層 = 同資料夾 demo_export/
-(demo commit fcedca7,旗標 adFailure,2026-09-24 撈的,demo 狀態無法重現所以存檔)。
-
-跑法:
-    python3 experiments/W02/layer2-format-probe/run_layer2_format_probe.py \
-        data/ITBench-Lite/snapshots/sre/<版本>/Scenario-105
-"""
+# 資料集導覽 §10.4|第二層(OTel demo)另外三種來源與切塊的實測(2026-09-24)。
+#
+# 來源:Calvin 2026-09-24 委託 TA 做,不屬於任何一週的作業。目的是 W3 之前先知道
+# 第二層的格式會不會卡住切塊。結論與數字寫在 [[EvalBench 資料集導覽]] §10.4。
+#
+# POC(TA 決定的切法,不是 Calvin 作業 2-3 的切法):一筆記錄一塊,log 一行一塊、
+# trace 一個 TraceId 一塊。只問一件事:同一支切塊函式,兩層資料各要多寫多少轉接才吃得下。
+#
+# 輸入:第一層 = 命令列給的場景資料夾;第二層 = 同資料夾 demo_export/
+# (demo commit fcedca7,旗標 adFailure,2026-09-24 撈的,demo 狀態無法重現所以存檔)。
+#
+# 跑法:
+#     python3 experiments/W02/layer2-format-probe/run_layer2_format_probe.py \
+#         data/ITBench-Lite/snapshots/sre/<版本>/Scenario-105
 
 import ast
 import collections
@@ -33,8 +32,8 @@ def chunk_log(svc, ts, sev, body, trace_id, pod):
             "trace_id": trace_id, "pod": pod}
 
 
+# spans: list of (service, span 名, 奈秒, 狀態, pod 名)
 def chunk_trace(trace_id, spans):
-    """spans: list of (service, span 名, 奈秒, 狀態, pod 名)"""
     lines = [f"{s} {n} {d / 1e6:.1f}ms {st}" for s, n, d, st, _ in spans]
     return {"text": f"trace {trace_id}\n" + "\n".join(lines), "trace_id": trace_id,
             "services": sorted({s for s, *_ in spans}),

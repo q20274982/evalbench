@@ -1,23 +1,22 @@
-"""作業 2-1 跑完後的速度探針:哪些改法能縮短建向量的時間,各省多少(2026-09-25)。
-
-來源:Calvin 2026-09-25 要求,估「縮短每段長度」與「只改腳本的小優化」兩類改法的效果,
-允許送實驗請求到 M1。不屬於任何作業;結論寫在 vault `Ops/m1pro-embedding-server.md` 最後一節。
-放在這一包,是因為要重建 run_2_1_string_queries.py 送出的同一批請求(同一包內可 import)。
-
-不寫 w02_2_1.chunks、不動 out/results.json 與 out/run.txt;每量完一項就追加一行到
-out/probe.jsonl,中途斷掉已量的還在。
-
-量五件事:
-  §2 段長 vs 速度:真實 k8s_objects 長行重切成 256…8000 token 的段,照正式腳本的分批規則送,各 3 次
-  §3 一次請求幾段:段長固定約 4096 token,一次 16 段 vs 48 段,各 2 次(驗證手冊 §9.4 的「試跑」)
-  §4 400 重送的成本:重建正式跑的批次,有截短的批各送一次原文、量 400 來回,乘上該批截短數
-  §5 批與批之間的空檔:128 段一個字的請求(float 與 base64 各 5 次),加上客戶端寫 DB 的時間
-  §6 重複的段:只查 DB,不打 M1
-
-跑法(M1 的 start.sh 要先開;後面可接 dedup / gap / retry / segs / length 只跑其中幾項):
-    docker compose run --rm -T app uv run python -u \\
-        experiments/W02/2-1-string-queries/probe_throughput.py [項目 ...]
-"""
+# 作業 2-1 跑完後的速度探針:哪些改法能縮短建向量的時間,各省多少(2026-09-25)。
+#
+# 來源:Calvin 2026-09-25 要求,估「縮短每段長度」與「只改腳本的小優化」兩類改法的效果,
+# 允許送實驗請求到 M1。不屬於任何作業;結論寫在 vault `Ops/m1pro-embedding-server.md` 最後一節。
+# 放在這一包,是因為要重建 run_2_1_string_queries.py 送出的同一批請求(同一包內可 import)。
+#
+# 不寫 w02_2_1.chunks、不動 out/results.json 與 out/run.txt;每量完一項就追加一行到
+# out/probe.jsonl,中途斷掉已量的還在。
+#
+# 量五件事:
+#   §2 段長 vs 速度:真實 k8s_objects 長行重切成 256…8000 token 的段,照正式腳本的分批規則送,各 3 次
+#   §3 一次請求幾段:段長固定約 4096 token,一次 16 段 vs 48 段,各 2 次(驗證手冊 §9.4 的「試跑」)
+#   §4 400 重送的成本:重建正式跑的批次,有截短的批各送一次原文、量 400 來回,乘上該批截短數
+#   §5 批與批之間的空檔:128 段一個字的請求(float 與 base64 各 5 次),加上客戶端寫 DB 的時間
+#   §6 重複的段:只查 DB,不打 M1
+#
+# 跑法(M1 的 start.sh 要先開;後面可接 dedup / gap / retry / segs / length 只跑其中幾項):
+#     docker compose run --rm -T app uv run python -u \\
+#         experiments/W02/2-1-string-queries/probe_throughput.py [項目 ...]
 
 import json
 import sys
@@ -64,8 +63,8 @@ def record(**kw) -> None:
         f.write(json.dumps(kw, ensure_ascii=False) + "\n")
 
 
+# 借 server 的 400 訊息數 token:只數不算,不佔 GPU。text 要超過 8192 token。
 def token_count(text: str) -> int:
-    """借 server 的 400 訊息數 token:只數不算,不佔 GPU。text 要超過 8192 token。"""
     code, _, detail = post([text])
     assert code == 400, (code, detail)
     return int(str(detail).split(" has ")[1].split(" tokens")[0])

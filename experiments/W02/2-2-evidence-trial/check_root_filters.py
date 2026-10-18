@@ -1,20 +1,19 @@
-"""作業 2-2|35 個場景的根因名稱規則,在各自的抽樣語料裡比中幾塊。
-
-問題:第二輪發現 `ad` 這種短 filter 用子字串比對幾乎什麼都中。「只算根因實體」的定義
-要先確認:各場景根因那一組的 filter 會不會也有同樣的問題(太寬),或像 Scenario-5 一樣
-只在少數來源出現(太窄)。
-
-輸入(純讀檔,不打 API、不跑 embedding、不連資料庫):
-  - 35 個場景,每個場景照 2-1 的語料定義抽樣:六種來源各抽 2000 行(不足全收),
-    一行一塊,種子 20260924(與 2-1 相同)
-  - 各場景 ground_truth.yaml 的 root_cause group:有 filter 用 re.search(任一條),
-    沒有用 id 子字串(不分大小寫)——與第一輪相同
-自我檢查:Scenario-5 必須是 10 塊(第一輪報告 §3),不等就停。
-
-跑法:
-    uv run python experiments/W02/2-2-evidence-trial/check_root_filters.py
-輸出:終端表格;out/root_filters.json
-"""
+# 作業 2-2|35 個場景的根因名稱規則,在各自的抽樣語料裡比中幾塊。
+#
+# 問題:第二輪發現 `ad` 這種短 filter 用子字串比對幾乎什麼都中。「只算根因實體」的定義
+# 要先確認:各場景根因那一組的 filter 會不會也有同樣的問題(太寬),或像 Scenario-5 一樣
+# 只在少數來源出現(太窄)。
+#
+# 輸入(純讀檔,不打 API、不跑 embedding、不連資料庫):
+#   - 35 個場景,每個場景照 2-1 的語料定義抽樣:六種來源各抽 2000 行(不足全收),
+#     一行一塊,種子 20260924(與 2-1 相同)
+#   - 各場景 ground_truth.yaml 的 root_cause group:有 filter 用 re.search(任一條),
+#     沒有用 id 子字串(不分大小寫)——與第一輪相同
+# 自我檢查:Scenario-5 必須是 10 塊(第一輪報告 §3),不等就停。
+#
+# 跑法:
+#     uv run python experiments/W02/2-2-evidence-trial/check_root_filters.py
+# 輸出:終端表格;out/root_filters.json
 
 # ruff: noqa: E501
 import json

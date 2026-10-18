@@ -1,45 +1,44 @@
-"""作業 2-2 POC|先抽「這一塊描述的實體 (kind, name)」,再照 alias 組判相關,和整行比對並排。
-
-要回答的四個問題(結論在 out/report.md):
-  Q1 六種來源各自能不能穩定抽出 (kind, name)
-  Q2 用抽出的實體比對,候選塊數和整行比對差多少
-  Q3 特殊場景(filter 無法編譯、沒有 filter、根因是故障注入物件)有哪些處理方式
-  Q4 答案檔的 kind 跟各來源抽出的東西怎麼對應(每一條都是待 Calvin 決定的假設)
-
-輸入(純讀檔,不打 API、不跑 embedding、不連資料庫):
-  - 每個場景照 2-1 的語料定義抽樣:六種來源各抽 2000 行(不足全收),一行一塊,種子 20260924。
-    抽樣函式從 2-1 複製(不 import 其他實驗);標頭行與多行紀錄的續行都留在語料裡,不濾掉。
-  - 各場景 ground_truth.yaml(答案檔只在 out/ 出現,本檔不寫任何場景的答案字面值)。
-
-獨立性(量尺不能跟被測系統共用判斷程式):
-  本檔不 import src/ 的任何東西。實體抽取與 filter 比對全部在本檔另寫。
-  src/scoring.py 有類似功能(literal_prefix / same_service_members / _match_any / is_entity_like),
-  src/parsing.py 有 inspect(),都沒用;路徑記在報告 §9。
-
-「這一塊描述的實體」怎麼定(Q4 的核心假設,報告 §3 逐條列):
-  只算「發出這一塊的主體」與它自己的層級:
-    logs / traces   : 發出者的 service.name(Service)、k8s.pod.name(Pod)、k8s.deployment.name(Deployment)
-    events          : involvedObject 或 regarding 的 (kind, name)
-    k8s_objects     : 物件自己最外層的 kind 與 metadata.name
-    metrics         : pod 檔的 pod_name 欄(Pod)、service 檔的 service_name 欄(Service)
-    alerts          : 該行寫著的 service_name(Service)、pod(Pod)、container(Container)與 description 句型
-  不算:呼叫對象(span 的 net.peer.name)、Event 自己的名字、ownerReferences、
-       log 內文裡「提到」的別的實體、metrics 的 tags 裡的 pod / service(那是抓指標的 otel-collector 或 Prometheus)。
-  namespace 是否算 Namespace 實體:主指標「不算」,另算一欄「算」(看 kind 是 Namespace 的場景差多少)。
-
-比對規則(主指標與變體都輸出,不選定):
-  主:kind 完全相同 且 filter 以 re.search 比實體 name(開頭的 `.*` 先去掉)
-  變體 fullmatch:filter 以 re.fullmatch 比 name(不去掉 `.*`)
-  變體 kind-blind:只比 name,不看 kind
-  變體 root-only:只用根因 group,不展開 alias 組
-  變體 ns-entity:主指標再加上 (Namespace, 該塊的 namespace) 這個實體
-
-alias 組 = 根因 group,加上「aliases 內層清單裡含根因 id」的那些清單的所有成員(只看直接含根因的清單,不做傳遞閉包)。
-
-跑法:
-    uv run python experiments/W02/2-2-entity-match-poc/run_poc.py
-輸出:out/results.json、out/report.md(內文散文段落讀 out/prose.json)
-"""
+# 作業 2-2 POC|先抽「這一塊描述的實體 (kind, name)」,再照 alias 組判相關,和整行比對並排。
+#
+# 要回答的四個問題(結論在 out/report.md):
+#   Q1 六種來源各自能不能穩定抽出 (kind, name)
+#   Q2 用抽出的實體比對,候選塊數和整行比對差多少
+#   Q3 特殊場景(filter 無法編譯、沒有 filter、根因是故障注入物件)有哪些處理方式
+#   Q4 答案檔的 kind 跟各來源抽出的東西怎麼對應(每一條都是待 Calvin 決定的假設)
+#
+# 輸入(純讀檔,不打 API、不跑 embedding、不連資料庫):
+#   - 每個場景照 2-1 的語料定義抽樣:六種來源各抽 2000 行(不足全收),一行一塊,種子 20260924。
+#     抽樣函式從 2-1 複製(不 import 其他實驗);標頭行與多行紀錄的續行都留在語料裡,不濾掉。
+#   - 各場景 ground_truth.yaml(答案檔只在 out/ 出現,本檔不寫任何場景的答案字面值)。
+#
+# 獨立性(量尺不能跟被測系統共用判斷程式):
+#   本檔不 import src/ 的任何東西。實體抽取與 filter 比對全部在本檔另寫。
+#   src/scoring.py 有類似功能(literal_prefix / same_service_members / _match_any / is_entity_like),
+#   src/parsing.py 有 inspect(),都沒用;路徑記在報告 §9。
+#
+# 「這一塊描述的實體」怎麼定(Q4 的核心假設,報告 §3 逐條列):
+#   只算「發出這一塊的主體」與它自己的層級:
+#     logs / traces   : 發出者的 service.name(Service)、k8s.pod.name(Pod)、k8s.deployment.name(Deployment)
+#     events          : involvedObject 或 regarding 的 (kind, name)
+#     k8s_objects     : 物件自己最外層的 kind 與 metadata.name
+#     metrics         : pod 檔的 pod_name 欄(Pod)、service 檔的 service_name 欄(Service)
+#     alerts          : 該行寫著的 service_name(Service)、pod(Pod)、container(Container)與 description 句型
+#   不算:呼叫對象(span 的 net.peer.name)、Event 自己的名字、ownerReferences、
+#        log 內文裡「提到」的別的實體、metrics 的 tags 裡的 pod / service(那是抓指標的 otel-collector 或 Prometheus)。
+#   namespace 是否算 Namespace 實體:主指標「不算」,另算一欄「算」(看 kind 是 Namespace 的場景差多少)。
+#
+# 比對規則(主指標與變體都輸出,不選定):
+#   主:kind 完全相同 且 filter 以 re.search 比實體 name(開頭的 `.*` 先去掉)
+#   變體 fullmatch:filter 以 re.fullmatch 比 name(不去掉 `.*`)
+#   變體 kind-blind:只比 name,不看 kind
+#   變體 root-only:只用根因 group,不展開 alias 組
+#   變體 ns-entity:主指標再加上 (Namespace, 該塊的 namespace) 這個實體
+#
+# alias 組 = 根因 group,加上「aliases 內層清單裡含根因 id」的那些清單的所有成員(只看直接含根因的清單,不做傳遞閉包)。
+#
+# 跑法:
+#     uv run python experiments/W02/2-2-entity-match-poc/run_poc.py
+# 輸出:out/results.json、out/report.md(內文散文段落讀 out/prose.json)
 
 # ruff: noqa: E501
 import csv
@@ -129,13 +128,12 @@ def _attr(key: str) -> re.Pattern[str]:
 A_SVC, A_POD, A_DEP, A_NS = _attr("service.name"), _attr("k8s.pod.name"), _attr("k8s.deployment.name"), _attr("k8s.namespace.name")
 
 
+# logs 與 traces 共用。
+# 抽 ResourceAttributes 裡的 service.name / k8s.pod.name / k8s.deployment.name / k8s.namespace.name。
+# 為什麼用整行 regex 不用欄位位置:logs 的 Body 有換行(導覽 §4.4),一則紀錄會被切成多個物理行,
+# ResourceAttributes 落在最後一行,位置切法會失敗,regex 找 `'key': 'value'` 都找得到。
+# 起始行若 ResourceAttributes 在下一行,退而取第 8 欄 ServiceName(logs 與 traces 都是第 8 欄)。
 def _otel_row(text: str) -> Ext:
-    """logs 與 traces 共用。
-    抽 ResourceAttributes 裡的 service.name / k8s.pod.name / k8s.deployment.name / k8s.namespace.name。
-    為什麼用整行 regex 不用欄位位置:logs 的 Body 有換行(導覽 §4.4),一則紀錄會被切成多個物理行,
-    ResourceAttributes 落在最後一行,位置切法會失敗,regex 找 `'key': 'value'` 都找得到。
-    起始行若 ResourceAttributes 在下一行,退而取第 8 欄 ServiceName(logs 與 traces 都是第 8 欄)。
-    """
     if HEADER.match(text):
         return Ext(status="header")
     ents: list[tuple[str, str, str]] = []
@@ -173,8 +171,8 @@ def ex_traces(rel: str, text: str) -> Ext:
     return _otel_row(text)
 
 
+# events 與 k8s_objects 共用:第 9 欄 Body 是 CSV 跳脫過的 JSON。
 def _body(text: str) -> tuple[dict | None, str]:
-    """events 與 k8s_objects 共用:第 9 欄 Body 是 CSV 跳脫過的 JSON。"""
     try:
         row = next(csv.reader([text], delimiter="\t", quotechar='"'))
     except Exception:
@@ -188,9 +186,9 @@ def _body(text: str) -> tuple[dict | None, str]:
     return (b, "ok") if isinstance(b, dict) else (None, "body_not_object")
 
 
+# 抽 object.involvedObject(舊版 events 用 regarding)的 kind 與 name。
+# 為什麼:Event 是「某個資源發生了什麼」的紀錄,主角是被指到的資源,不是 Event 自己的名字。
 def ex_events(rel: str, text: str) -> Ext:
-    """抽 object.involvedObject(舊版 events 用 regarding)的 kind 與 name。
-    為什麼:Event 是「某個資源發生了什麼」的紀錄,主角是被指到的資源,不是 Event 自己的名字。"""
     if HEADER.match(text):
         return Ext(status="header")
     b, st = _body(text)
@@ -208,8 +206,8 @@ def ex_events(rel: str, text: str) -> Ext:
     return Ext([(kind, name, "involved")], io.get("namespace"), "ok", "body")
 
 
+# 抽物件最外層的 kind 與 metadata.name。為什麼:快照的每一行就是一個資源,自我描述。
 def ex_k8s_objects(rel: str, text: str) -> Ext:
-    """抽物件最外層的 kind 與 metadata.name。為什麼:快照的每一行就是一個資源,自我描述。"""
     if HEADER.match(text):
         return Ext(status="header")
     b, st = _body(text)
@@ -224,10 +222,10 @@ def ex_k8s_objects(rel: str, text: str) -> Ext:
     return Ext([(kind, name, "object")], ns, "ok", "body")
 
 
+# pod 檔取 pod_name 欄、service 檔取 service_name 欄(都是第 4 欄),namespace 是第 5 欄。
+# 為什麼不用 tags:service 檔 tags 裡的 pod 是 otel-collector,pod 檔 tags 裡的 service 是 Prometheus 的抓取端點,
+# 都不是這條指標在量的對象。種類由檔名前綴決定(這是一個假設,見報告 §3)。
 def ex_metrics(rel: str, text: str) -> Ext:
-    """pod 檔取 pod_name 欄、service 檔取 service_name 欄(都是第 4 欄),namespace 是第 5 欄。
-    為什麼不用 tags:service 檔 tags 裡的 pod 是 otel-collector,pod 檔 tags 裡的 service 是 Prometheus 的抓取端點,
-    都不是這條指標在量的對象。種類由檔名前綴決定(這是一個假設,見報告 §3)。"""
     cols = text.split("\t")
     if cols[0] == "metric_name":
         return Ext(status="header")
@@ -248,12 +246,12 @@ AL_DESC_NS = re.compile(r'"description":\s*"Namespace (\S+) is')
 AL_KIND = {"HPA": "HorizontalPodAutoscaler"}
 
 
+# 告警 JSON 是排版過的,一個物理行只有一個欄位。這裡只看單行(一行一塊):
+# `"service_name": "x"` 取 Service、`"pod": "x"` 取 Pod、`"container": "x"` 取 Container、
+# `"namespace"` 只記 ns;description 行用句型「in service X in namespace Y」「in pod X on」「for container X in pod」
+# 「Pod|Deployment|HPA ns/name」「Service X in namespace Y」「Namespace X is」(句型是看過九個場景的告警文字後補的,見報告 §7)。
+# 不取 `"service"`(那是 Prometheus 抓取端點的標籤,不是被告警的服務)。
 def ex_alerts(rel: str, text: str) -> Ext:
-    """告警 JSON 是排版過的,一個物理行只有一個欄位。這裡只看單行(一行一塊):
-    `"service_name": "x"` 取 Service、`"pod": "x"` 取 Pod、`"container": "x"` 取 Container、
-    `"namespace"` 只記 ns;description 行用句型「in service X in namespace Y」「in pod X on」「for container X in pod」
-    「Pod|Deployment|HPA ns/name」「Service X in namespace Y」「Namespace X is」(句型是看過九個場景的告警文字後補的,見報告 §7)。
-    不取 `"service"`(那是 Prometheus 抓取端點的標籤,不是被告警的服務)。"""
     ents: list[tuple[str, str, str]] = []
     ns = None
     m = AL_KV.match(text)
@@ -296,8 +294,8 @@ def ex_alerts(rel: str, text: str) -> Ext:
 EXTRACT = {"logs": ex_logs, "traces": ex_traces, "events": ex_events, "k8s_objects": ex_k8s_objects, "metrics": ex_metrics, "alerts": ex_alerts}
 
 
+# 對照用:若一塊 = 一個完整告警物件(不是一行),抽得出實體的比例。讀該場景全部告警檔,不抽樣。
 def alert_object_stats(sc: Path) -> dict:
-    """對照用:若一塊 = 一個完整告警物件(不是一行),抽得出實體的比例。讀該場景全部告警檔,不抽樣。"""
     files = sorted(sc.glob("alerts/*.json")) + sorted(sc.glob("alerts_in_alerting_state_*.json"))
     total = with_ent = 0
     missing = Counter()
@@ -352,8 +350,8 @@ def alias_groups(groups: list[Group], aliases: list[list[str]], transitive: bool
 
 
 # 沒有 filter(或 filter 無法編譯)時的備援選項;主指標的預設是「有 name 欄用 name,否則用 id」,只是 POC 預設,不是決定
+# 回傳 {"search": fn, "full": fn};None = 無法比對(無效 filter 且沒選備援)。
 def build_tests(g: Group, fallback: str | None = None) -> dict | None:
-    """回傳 {"search": fn, "full": fn};None = 無法比對(無效 filter 且沒選備援)。"""
     if g.filters and fallback is None:
         try:
             srch = [re.compile(p.removeprefix(".*")) for p in g.filters]
@@ -393,8 +391,8 @@ def hit_group(ext: Ext, tests: list[tuple[Group, dict | None]], mode: str = "sea
     return None
 
 
+# 整行比對(複製 2-2 check_root_filters.matcher 的邏輯):filter 以 re.search 比整行;沒有 filter 用 id 子字串。
 def old_matcher(g: Group):
-    """整行比對(複製 2-2 check_root_filters.matcher 的邏輯):filter 以 re.search 比整行;沒有 filter 用 id 子字串。"""
     if g.filters:
         try:
             pats = [re.compile(p.removeprefix(".*")) for p in g.filters]
@@ -413,8 +411,8 @@ def old_matcher(g: Group):
     return lambda t: (_M(t.lower().find(key)) if key in t.lower() else None)
 
 
+# 從 out/root_filters*.txt 抄整行比對的數字,做交叉驗算。
 def parse_old_txt() -> dict[str, dict]:
-    """從 out/root_filters*.txt 抄整行比對的數字,做交叉驗算。"""
     res: dict[str, dict] = {}
     for f in ("root_filters.txt", "root_filters_rest.txt"):
         for line in (OLD_OUT / f).read_text().splitlines():
@@ -440,8 +438,8 @@ def window(text: str, needle: str, before: int = 90, after: int = 110) -> str:
     return f"{head} … {clip(seg, before + len(needle) + after)}"
 
 
+# 每種來源先各自洗牌,再輪流各取一個,直到取滿 k 個。
 def round_robin(cands: dict[str, list], k: int, rng: random.Random) -> list:
-    """每種來源先各自洗牌,再輪流各取一個,直到取滿 k 個。"""
     pools = {s: rng.sample(v, len(v)) for s, v in cands.items() if v}
     out = []
     while pools and len(out) < k:
@@ -580,8 +578,8 @@ def run_scenario(n: int, old_txt: dict) -> dict:
     return r
 
 
+# 35 個場景:根因 group 的 kind 分布,與 alias 組(含根因)裡所有 group 的 kind 分布(Q4:要對應的 kind 有哪些)。
 def all_scenarios_kinds() -> dict:
-    """35 個場景:根因 group 的 kind 分布,與 alias 組(含根因)裡所有 group 的 kind 分布(Q4:要對應的 kind 有哪些)。"""
     root_kinds, alias_kinds, no_filter_root = Counter(), Counter(), 0
     for sc in sorted(BASE.glob("Scenario-*")):
         groups, aliases = load_gt(sc)

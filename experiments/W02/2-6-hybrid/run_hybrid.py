@@ -1,21 +1,20 @@
-"""作業 2-6:混合搜尋(向量 + 關鍵字,RRF 合併)vs 改動前的起點(只用向量),檢索命中率@k。
-
-設定出處:W02 §9.2「兩份名次表怎麼合併」「關鍵字搜尋的設定」(Calvin 2026-10-11),共 24 組:
-  起點的 4 種組法(combine one/each × events_mode raw/fields)
-  × split(拆字前把 / . : 換成空白與否)× ts_config(english / simple)
-  × fuse(只在 each:flat / two_level)
-起點 = retrieval.search(排除組查詢用到的塊,code repo 8a84c01),同一次跑重算,不讀舊的 result.json。
-比較:排除版每題 hit@5,跟同一組法的起點逐題比——新中舊沒中 = 贏,舊中新沒中 = 輸。
-
-跑法(從 repo 根目錄,DB 要先起來):
-    POSTGRES_HOST=localhost uv run python experiments/W02/2-6-hybrid/run_hybrid.py
-每組跑 1 次:向量與查詢向量已固定在 DB,ts_rank 與 RRF 同分都照塊 id 排,沒有隨機成分。
-
-加速(結果不變,只省時間):
-  - 塊的 tsvector 先算好存進本實驗自己的表 exp_w02_hybrid.tsv(4 種切字設定 × 全部塊,表在就沿用),
-    不然 24 組會把同一份 tsvector 重算 6 次。§1 會抽一題比對先算好的與現算的名次表完全相同
-  - 25 題分給 WORKERS 條執行緒平行跑,一條一個 DB 連線
-"""
+# 作業 2-6:混合搜尋(向量 + 關鍵字,RRF 合併)vs 改動前的起點(只用向量),檢索命中率@k。
+#
+# 設定出處:W02 §9.2「兩份名次表怎麼合併」「關鍵字搜尋的設定」(Calvin 2026-10-11),共 24 組:
+#   起點的 4 種組法(combine one/each × events_mode raw/fields)
+#   × split(拆字前把 / . : 換成空白與否)× ts_config(english / simple)
+#   × fuse(只在 each:flat / two_level)
+# 起點 = retrieval.search(排除組查詢用到的塊,code repo 8a84c01),同一次跑重算,不讀舊的 result.json。
+# 比較:排除版每題 hit@5,跟同一組法的起點逐題比——新中舊沒中 = 贏,舊中新沒中 = 輸。
+#
+# 跑法(從 repo 根目錄,DB 要先起來):
+#     POSTGRES_HOST=localhost uv run python experiments/W02/2-6-hybrid/run_hybrid.py
+# 每組跑 1 次:向量與查詢向量已固定在 DB,ts_rank 與 RRF 同分都照塊 id 排,沒有隨機成分。
+#
+# 加速(結果不變,只省時間):
+#   - 塊的 tsvector 先算好存進本實驗自己的表 exp_w02_hybrid.tsv(4 種切字設定 × 全部塊,表在就沿用),
+#     不然 24 組會把同一份 tsvector 重算 6 次。§1 會抽一題比對先算好的與現算的名次表完全相同
+#   - 25 題分給 WORKERS 條執行緒平行跑,一條一個 DB 連線
 
 import json
 import sys
@@ -60,13 +59,13 @@ def configs():
                     yield combine, events_mode, split, ts_config, fuse
 
 
+# 排除版的題目(relevance.report_groups 同一條件)。
 def kept(rows: dict) -> list[str]:
-    """排除版的題目(relevance.report_groups 同一條件)。"""
     return [s for s, r in rows.items() if s not in relevance.EXCLUDED and r["相關塊數"]]
 
 
+# 一題:起點 4 種組法 + 混合 24 組。回傳 (起點每題列, 混合每題列, 混合前 20 名)。
 def run_scenario(s: str, rel: set[str]) -> tuple[dict, dict, dict]:
-    """一題:起點 4 種組法 + 混合 24 組。回傳 (起點每題列, 混合每題列, 混合前 20 名)。"""
     conn = chunk_store.connect()
     base = {
         f"{c}/{e}": relevance.per_scenario(retrieval.search(conn, s, e, c, K), rel)

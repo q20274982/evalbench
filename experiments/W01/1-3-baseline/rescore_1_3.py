@@ -1,25 +1,24 @@
-"""W01 追加|同一批答案,兩套判準差幾分。
-
-只讀 out/1_3_records.json(作業 1-3 的 live 輸出),不打 API、不花錢。
-
-  A 套 = Calvin 的 §7.3.1 規格:根因 filter → 同服務成員 filter → 根因/同服務 id,
-         跨服務的下游受害者不算對。
-  B 套 = ITBench 官方 judge prompt 的規則(itbench-hub/ITBench-Evaluations 的
-         itbench_evaluations/prompts/main.py):「If ANY entity in an alias group has
-         root_cause: true, then matching ANY entity in that alias group counts as
-         correctly identifying the root cause.」也就是 alias 組內任一個都算對,
-         不分同服務或下游。
-
-⚠️ B 套是**近似**,不是官方的完整實作。兩個已知差距:
-  ① 官方要求 name 對得上 filter **與 kind**;這裡只比 name,沒有 kind 這個訊號
-     (模型只吐一個字串,沒有吐 kind)。
-  ② 官方的 matches_gt 是 LLM judge 給的,這裡是機械比對。同樣寫「差不多的名字」,
-     judge 可能算對,機械比對不會。
-所以 B 套的數字是「官方規則在機械比對下的下界」,不等於官方跑出來的分數。
-
-跑法:
-    docker compose run --rm app uv run python experiments/W01/1-3-baseline/rescore_1_3.py
-"""
+# W01 追加|同一批答案,兩套判準差幾分。
+#
+# 只讀 out/1_3_records.json(作業 1-3 的 live 輸出),不打 API、不花錢。
+#
+#   A 套 = Calvin 的 §7.3.1 規格:根因 filter → 同服務成員 filter → 根因/同服務 id,
+#          跨服務的下游受害者不算對。
+#   B 套 = ITBench 官方 judge prompt 的規則(itbench-hub/ITBench-Evaluations 的
+#          itbench_evaluations/prompts/main.py):「If ANY entity in an alias group has
+#          root_cause: true, then matching ANY entity in that alias group counts as
+#          correctly identifying the root cause.」也就是 alias 組內任一個都算對,
+#          不分同服務或下游。
+#
+# ⚠️ B 套是**近似**,不是官方的完整實作。兩個已知差距:
+#   ① 官方要求 name 對得上 filter **與 kind**;這裡只比 name,沒有 kind 這個訊號
+#      (模型只吐一個字串,沒有吐 kind)。
+#   ② 官方的 matches_gt 是 LLM judge 給的,這裡是機械比對。同樣寫「差不多的名字」,
+#      judge 可能算對,機械比對不會。
+# 所以 B 套的數字是「官方規則在機械比對下的下界」,不等於官方跑出來的分數。
+#
+# 跑法:
+#     docker compose run --rm app uv run python experiments/W01/1-3-baseline/rescore_1_3.py
 
 import json
 import statistics

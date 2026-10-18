@@ -1,11 +1,10 @@
-"""作業 0-4|pydantic 的驗證發生在什麼時候。
-
-跑法:
-    docker compose run --rm app uv run pytest tests/test_diagnosis.py -s
-
-交付時是「一綠一紅」,紅的那支寫的是錯的期望,用途是讓 ValidationError 真的出現一次
-(輸出留在 W00 工作簿 §5.4.1)。2026-09-08 已改成正確的期望,現在全綠。
-"""
+# 作業 0-4|pydantic 的驗證發生在什麼時候。
+#
+# 跑法:
+#     docker compose run --rm app uv run pytest tests/test_diagnosis.py -s
+#
+# 交付時是「一綠一紅」,紅的那支寫的是錯的期望,用途是讓 ValidationError 真的出現一次
+# (輸出留在 W00 工作簿 §5.4.1)。2026-09-08 已改成正確的期望,現在全綠。
 
 import pytest
 from pydantic import ValidationError

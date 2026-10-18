@@ -1,15 +1,14 @@
-"""量尺(評測台):一塊算不算證據,以及檢索命中率@k 怎麼算。
-
-規格出處(Calvin 定,TA 照著實作):
-  - SPEC §8.2 相關怎麼標:第一步只取「發出這一塊的東西」(2026-10-11),第二步照官方推導設定比對
-    根因所在的 alias 組(R01 §11、§12)
-  - SPEC §8.1 分數怎麼算:hit@k、recall@k(macro / micro)、precision@k(分母一律 k)
-  - R01 §12 排除版:去掉 38、29、105(名稱規則與資料對不上)與「沒有任何相關塊」的題
-  - W03 §15.1 下 2026-09-29 的決定:根因是 Chaos Mesh 實驗物件的題獨立成一類分開報
-
-獨立性:本檔不 import retrieval.py,判斷程式不跟被測系統共用(/scaffold 慣例 6)。
-小數:SPEC §8.1 的小數處理還沒統一,這裡一律保留完整精度,報數字時再決定。
-"""
+# 量尺(評測台):一塊算不算證據,以及檢索命中率@k 怎麼算。
+#
+# 規格出處(Calvin 定,TA 照著實作):
+#   - SPEC §8.2 相關怎麼標:第一步只取「發出這一塊的東西」(2026-10-11),第二步照官方推導設定比對
+#     根因所在的 alias 組(R01 §11、§12)
+#   - SPEC §8.1 分數怎麼算:hit@k、recall@k(macro / micro)、precision@k(分母一律 k)
+#   - R01 §12 排除版:去掉 38、29、105(名稱規則與資料對不上)與「沒有任何相關塊」的題
+#   - W03 §15.1 下 2026-09-29 的決定:根因是 Chaos Mesh 實驗物件的題獨立成一類分開報
+#
+# 獨立性:本檔不 import retrieval.py,判斷程式不跟被測系統共用(/scaffold 慣例 6)。
+# 小數:SPEC §8.1 的小數處理還沒統一,這裡一律保留完整精度,報數字時再決定。
 
 import json
 import re
@@ -112,8 +111,8 @@ class Group:
     root: bool
 
 
+# 根因 group,加上 aliases 裡「直接含根因 id」的那些清單的所有成員。
 def alias_set(scenario: str) -> list[Group]:
-    """根因 group,加上 aliases 裡「直接含根因 id」的那些清單的所有成員。"""
     raw = yaml.safe_load(open(DATASET_ROOT / scenario / "ground_truth.yaml"))
     c = raw.get("spec", raw)
     groups = [
@@ -134,8 +133,8 @@ def alias_set(scenario: str) -> list[Group]:
     return [g for g in groups if g.id in ids]
 
 
+# 名稱規則原樣從開頭比(re.match);沒有名稱規則:name 欄位完全相同;規則無法編譯:只比 kind。
 def name_test(g: Group):
-    """名稱規則原樣從開頭比(re.match);沒有名稱規則:name 欄位完全相同;規則無法編譯:只比 kind。"""
     if g.filters:
         try:
             pats = [re.compile(p) for p in g.filters]
@@ -150,8 +149,8 @@ def is_chaos(scenario: str) -> bool:
     return root.kind.endswith("Chaos") or root.kind == "Schedule"
 
 
+# chunks = [(id, source, text, key)]。回傳算相關的塊 id。
 def relevant_ids(scenario: str, chunks: list[tuple[str, str, str, list]]) -> set[str]:
-    """chunks = [(id, source, text, key)]。回傳算相關的塊 id。"""
     tests = [(g.kind, name_test(g)) for g in alias_set(scenario)]
     out = set()
     for cid, source, text, key in chunks:
@@ -174,9 +173,9 @@ def per_scenario(ranked: list[str], relevant: set[str]) -> dict:
     return out
 
 
+# rows = {場景: per_scenario 的結果}。hit、precision 每題平均;recall 報 macro 與 micro,
+# 沒有相關塊的題不計,另報不計的題數。
 def aggregate(rows: dict[str, dict]) -> dict:
-    """rows = {場景: per_scenario 的結果}。hit、precision 每題平均;recall 報 macro 與 micro,
-    沒有相關塊的題不計,另報不計的題數。"""
     if not rows:
         return {}
     out: dict = {"題數": len(rows)}
@@ -195,8 +194,8 @@ def aggregate(rows: dict[str, dict]) -> dict:
     return out
 
 
+# 全算版、排除版,以及排除版裡的非 chaos / chaos 兩類。
 def report_groups(rows: dict[str, dict]) -> dict[str, dict]:
-    """全算版、排除版,以及排除版裡的非 chaos / chaos 兩類。"""
     kept = {s: r for s, r in rows.items() if s not in EXCLUDED and r["相關塊數"]}
     return {
         "全算版": aggregate(rows),

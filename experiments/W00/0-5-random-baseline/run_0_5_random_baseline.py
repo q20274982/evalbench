@@ -1,44 +1,43 @@
-"""W00 作業 0-5|「隨機猜」基準線:agent 不看任何觀測資料,純亂猜能拿幾分。
-
-這支在算什麼
-------------
-ITBench-Lite 有 35 個 SRE 場景。每個場景的 ground_truth.yaml 帶一個 `groups` 清單
-(n 項),其中恰好一項標了 `root_cause: true`。任務設定是:agent 從這 n 項裡挑 k 個
-id 當候選,正確根因落在候選裡就算這題命中。
-
-「隨機猜」= 完全不看告警、指標、log、trace,直接從 n 項裡等機率抽 k 個(不重複)。
-單場景命中機率有閉式解,不需要模擬:
-
-    P(命中) = min(k, n) / n
-
-    (n 項裡只有 1 項是對的,抽 k 項不放回,對的那項被抽中的機率就是 k/n;
-     k >= n 時整包都抽走,必中,所以取 min(k, n)。)
-
-35 場景的平均命中機率(對 35 個單場景機率取「不加權算術平均」)就是該 k 的
-random baseline。因為是閉式解,不跑亂數,所以沒有 run-to-run 區間。
-
-為什麼要算
-----------
-作業 0-5 要幫評測台的「根因命中」訂一條及格門檻。門檻的意義在於「贏過亂猜」——
-如果一個只會亂猜的 agent 就能過門檻,這條門檻沒有鑑別力。所以要先知道亂猜在
-k = 1..5 各能拿多少,門檻必須明顯高過對應的這個數字。
-
-注意 n 偏小(最小 2、中位數約 5),所以 k 大的時候 baseline 會很高,k=5 時
-亂猜就逼近全中。門檻能真正拉開差距的區間是 k=1、k=2。
-
-ground_truth.yaml 的兩種寫法
-----------------------------
-  A 型(31 個):`groups` 直接在檔案頂層。
-  B 型(4 個,Scenario 20 / 23 / 31 / 105):k8s CR 風格,頂層是
-    apiVersion / kind / metadata / spec,`groups` 在 `spec` 底下。
-兩種都讀,讀不出來的場景會在下面「異常場景」區明確列出,不靜默跳過;有異常時
-腳本以非 0 結束碼收工。
-
-跑法
-----
-    cd ~/evalbench && docker compose run --rm app \
-        uv run python experiments/W00/0-5-random-baseline/run_0_5_random_baseline.py
-"""
+# W00 作業 0-5|「隨機猜」基準線:agent 不看任何觀測資料,純亂猜能拿幾分。
+#
+# 這支在算什麼
+# ------------
+# ITBench-Lite 有 35 個 SRE 場景。每個場景的 ground_truth.yaml 帶一個 `groups` 清單
+# (n 項),其中恰好一項標了 `root_cause: true`。任務設定是:agent 從這 n 項裡挑 k 個
+# id 當候選,正確根因落在候選裡就算這題命中。
+#
+# 「隨機猜」= 完全不看告警、指標、log、trace,直接從 n 項裡等機率抽 k 個(不重複)。
+# 單場景命中機率有閉式解,不需要模擬:
+#
+#     P(命中) = min(k, n) / n
+#
+#     (n 項裡只有 1 項是對的,抽 k 項不放回,對的那項被抽中的機率就是 k/n;
+#      k >= n 時整包都抽走,必中,所以取 min(k, n)。)
+#
+# 35 場景的平均命中機率(對 35 個單場景機率取「不加權算術平均」)就是該 k 的
+# random baseline。因為是閉式解,不跑亂數,所以沒有 run-to-run 區間。
+#
+# 為什麼要算
+# ----------
+# 作業 0-5 要幫評測台的「根因命中」訂一條及格門檻。門檻的意義在於「贏過亂猜」——
+# 如果一個只會亂猜的 agent 就能過門檻,這條門檻沒有鑑別力。所以要先知道亂猜在
+# k = 1..5 各能拿多少,門檻必須明顯高過對應的這個數字。
+#
+# 注意 n 偏小(最小 2、中位數約 5),所以 k 大的時候 baseline 會很高,k=5 時
+# 亂猜就逼近全中。門檻能真正拉開差距的區間是 k=1、k=2。
+#
+# ground_truth.yaml 的兩種寫法
+# ----------------------------
+#   A 型(31 個):`groups` 直接在檔案頂層。
+#   B 型(4 個,Scenario 20 / 23 / 31 / 105):k8s CR 風格,頂層是
+#     apiVersion / kind / metadata / spec,`groups` 在 `spec` 底下。
+# 兩種都讀,讀不出來的場景會在下面「異常場景」區明確列出,不靜默跳過;有異常時
+# 腳本以非 0 結束碼收工。
+#
+# 跑法
+# ----
+#     cd ~/evalbench && docker compose run --rm app \
+#         uv run python experiments/W00/0-5-random-baseline/run_0_5_random_baseline.py
 
 import glob
 import statistics
@@ -50,8 +49,8 @@ SRE_GLOB = "data/ITBench-Lite/snapshots/sre/v0.2-*/Scenario-*/ground_truth.yaml"
 K_VALUES = [1, 2, 3, 4, 5]
 
 
+# 回傳 (groups_list, shape)。shape 是 'A' / 'B' / '?'。
 def extract_groups(doc):
-    """回傳 (groups_list, shape)。shape 是 'A' / 'B' / '?'。"""
     if isinstance(doc, dict) and isinstance(doc.get("groups"), list):
         return doc["groups"], "A"
     spec = doc.get("spec") if isinstance(doc, dict) else None
@@ -60,12 +59,11 @@ def extract_groups(doc):
     return None, "?"
 
 
+# 讀所有場景。回傳 (ok, anomalies)。
+#
+# ok       = [(scenario_name, n, shape), ...]
+# anomalies= [(scenario_name, reason, top_level_keys), ...]
 def load_scenarios():
-    """讀所有場景。回傳 (ok, anomalies)。
-
-    ok       = [(scenario_name, n, shape), ...]
-    anomalies= [(scenario_name, reason, top_level_keys), ...]
-    """
     ok = []
     anomalies = []
     for path in sorted(glob.glob(SRE_GLOB), key=_scenario_sort_key):
