@@ -18,7 +18,7 @@ from parsing import inspect
 from tracing import TRACES_ROOT, read_trace
 
 # 破那一輪的 run_id。跑完 run_2_4.py live(CITATION_CHECK=off)後填,來源 out/runs.jsonl。
-BREAK_RUN_ID = ""
+BREAK_RUN_ID = "20261018T071554Z-cce9cb"
 
 
 # §1 測試自己的逐字比對:大小寫一樣的子字串(W02 §3),空字串算找不到。
