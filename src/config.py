@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     postgres_host: str = "db"
     postgres_port: int = 5432
 
+    # W2 作業 2-4 的引用檢查開關(W02 §7 實作用決定 ②):只收 "on" / "off"。
+    # 這裡刻意寫成可以沒設,否則每支 import config 的腳本都會在啟動時爆掉;
+    # 「沒設就報錯」由用到它的 src/citation_check.py 負責。
+    citation_check: str | None = None
+
     @property
     def postgres_dsn(self) -> str:
         return (

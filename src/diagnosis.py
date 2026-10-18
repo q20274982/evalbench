@@ -9,7 +9,7 @@
 # (§7.2.1,格式服從率 90%–95%)是三欄時期量的,拿變更後的腳本重跑不會得到
 # 同一批數字。
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # 一次事故診斷的輸出。
@@ -19,3 +19,9 @@ class Diagnosis(BaseModel):
     root_cause_entity: str
     confidence: float
     evidence: list[str]
+    # W02 §7 第 4 項(Calvin 2026-10-18 選 c,子分支 TA 決定):兩個選填欄位。
+    # 有預設值,不允許說不知道的那一組沒輸出這兩欄也不會變成解析失敗。
+    # abstain = true 就是說不知道,此時 root_cause_entity 填 ""。
+    abstain: bool = False
+    # 每條「候選 — 排除理由」。判定規則留到 W3 作業 3-2。
+    ruled_out: list[str] = Field(default_factory=list)

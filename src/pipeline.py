@@ -201,3 +201,65 @@ def build_retrieval_prompt(
         retrieved="\n\n".join(blocks) or "(no retrieval results)",
     )
     return prompt, ids
+
+
+# §7 作業 2-4 的 prompt(W02 §7 2026-10-18 prompt 決定)
+# 跟 §6 的 RETRIEVAL_TEMPLATE 只差 Evidence rules 那兩條:
+#   ① evidence 只能從 "=== Retrieved context ===" 那一段引用,告警與 events 只是背景
+#   ② 每條 evidence 都是從檢索結果逐字複製的原文片段
+# 不要求模型標塊號(位置由程式找出)。破和修共用這一份,兩次只差引用檢查開或關。
+# §6 那份不動,作業 2-6 的數字要重現得出來。
+CITATION_TEMPLATE = """You are the on-call SRE. Below is an observability snapshot of a \
+Kubernetes cluster taken during an incident.
+
+Determine the root cause of this incident. Output only a single JSON object, with no other text:
+{{"root_cause": "<the root cause in one sentence>", \
+"root_cause_entity": "<name of the root-cause resource, name only>",\
+ "confidence": <a decimal between 0 and 1>, "evidence": ["<evidence 1>"]}}
+
+Evidence rules:
+- Quote evidence only from the "=== Retrieved context ===" section. The Alerts and \
+K8s events sections are background only; do not quote them as evidence.
+- Each evidence item must be a verbatim copy of a text fragment from the Retrieved context.
+
+=== Alerts ===
+{alerts}
+
+=== K8s events ===
+{events}
+
+=== Retrieved context ===
+{retrieved}
+"""
+
+
+# 回傳 (prompt 全文, 第三段那 10 塊的 [{id, text}])。
+#
+# 第二個回傳值是 trace 的 retrieval 欄位(W02 §7 第 2 項):跟組 prompt 用的是同一份
+# texts,同一步取出,不另外再查一次,所以跟送進 prompt 的一字不差。
+# INV-13:只讀 retrieval.chunks,不碰 ground_truth.yaml。
+def build_citation_prompt(
+    conn,
+    scenario: str,
+    combine: str,
+    split: bool,
+    fuse: str = "flat",
+    k: int = RETRIEVAL_K,
+    pick: str = "warning5",
+) -> tuple[str, list[dict]]:
+    alerts, _ = retrieval.alert_texts(conn, scenario)
+    events, _ = retrieval.event_texts(conn, scenario, "raw", pick)
+    ids = retrieval.hybrid_search(
+        conn, scenario, "raw", combine, k, "simple", split, fuse, pick=pick
+    )
+    texts = dict(
+        conn.execute("SELECT id, text FROM retrieval.chunks WHERE id = ANY(%s)", (ids,)).fetchall()
+    )
+    blocks = [{"id": cid, "text": texts[cid]} for cid in ids]
+    shown = [f"--- [{i}] {b['id']} ---\n{b['text']}" for i, b in enumerate(blocks, 1)]
+    prompt = CITATION_TEMPLATE.format(
+        alerts="\n\n".join(alerts) or "(no alerts for this scenario)",
+        events="\n\n".join(events) or "(no k8s events for this scenario)",
+        retrieved="\n\n".join(shown) or "(no retrieval results)",
+    )
+    return prompt, blocks
