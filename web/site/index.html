@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EvalBench</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#/">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>EvalBench</span>
+      <span class="brand-sub" data-i18n="brand.sub"></span>
+    </a>
+    <nav class="topnav">
+      <a href="#/" data-nav="issues" data-i18n="nav.issues"></a>
+      <a href="#/runs" data-nav="runs" data-i18n="nav.runs"></a>
+    </nav>
+    <span class="replay-pill" data-i18n="pill" data-i18n-title="pill.title"></span>
+    <span class="seg lang" role="group" aria-label="Language">
+      <button type="button" data-lang="zh">中文</button>
+      <button type="button" data-lang="en">EN</button>
+    </span>
+  </header>
+  <main id="app"><p class="muted pad" data-i18n="loading"></p></main>
+  <footer class="foot" data-i18n="foot"></footer>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

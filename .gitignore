@@ -17,7 +17,7 @@ data/
 
 # 評測產物
 runs/
-traces/
+/traces/
 *.log
 
 # OS
@@ -39,4 +39,4 @@ external/
 experiments/W00/otel_demo_smoke/
 
 # trace 紀錄(W01 §7.6.1 ②b:不進版控)
-traces/
+/traces/

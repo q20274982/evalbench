@@ -1,0 +1,35 @@
+# 把 web/site/ 原樣發佈到 GitHub Pages。不建置、不重新匯出資料:
+# CI 沒有 traces/ 與資料集,網站讀的 JSON 由本機跑 web/export_demo.py 產生後 commit 進來。
+#
+# 第一次使用:repo 的 Settings → Pages → Source 選「GitHub Actions」。
+name: pages
+
+on:
+  push:
+    branches: [master]
+    paths: ["web/site/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/site
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -25,6 +25,16 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data   # 持久化:容器砍掉重建,資料還在
 
+  # Demo 站(過渡版,Calvin 2026-11-10)。純靜態檔,不連 db、不呼叫模型。
+  # 資料先用 `docker compose run --rm app uv run python web/export_demo.py` 匯出,
+  # 再 `docker compose up -d demo`,開 http://localhost:8080
+  demo:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./web/site:/usr/share/nginx/html:ro
+    ports:
+      - "8080:80"
+
 volumes:
   uv-cache:
   venv:
